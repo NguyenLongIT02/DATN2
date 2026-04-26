@@ -28,12 +28,12 @@ const Team = () => {
   const tabItems = [
     {
       key: "roles",
-      label: "Roles & Permissions",
+      label: <IntlMessages id="team.rolesAndPermissions" />,
       children: <RolesPermissionsTab />,
     },
     {
       key: "members",
-      label: "Team Members",
+      label: <IntlMessages id="team.teamMembers" />,
       children: (
         <TeamMembersTab
           boardId={selectedBoardId}
@@ -45,7 +45,7 @@ const Team = () => {
 
   return (
     <AppsContainer
-      title="Team Management"
+      title={<IntlMessages id="team.teamManagement" />}
       sidebarContent={
         <TeamSidebar
           selectedBoardId={selectedBoardId}

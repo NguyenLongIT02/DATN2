@@ -127,31 +127,12 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
     loadMembers();
   }, [boardId]);
 
-  const handleSearch = async (value: string) => {
+  const handleSearch = (value: string) => {
     setSearchQuery(value);
-    if (value.trim()) {
-      setLoading(true);
-      try {
-        const results = await boardMemberService.searchTeamMembers(value);
-        setMembers(results);
-      } catch (error) {
-        message.error("Search failed");
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      loadMembers();
-    }
   };
 
   const handleRoleFilter = (value: string | "all") => {
     setRoleFilter(value);
-    if (value === "all") {
-      loadMembers();
-    } else {
-      const filtered = members.filter((member) => member.role === value);
-      setMembers(filtered);
-    }
   };
 
   const filteredMembers = members
@@ -161,7 +142,13 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
         member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         member.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesRole = roleFilter === "all" || member.role === roleFilter;
+      // Normalize role for comparison
+      let normalizedMemberRole = member.role;
+      if (member.role === "Project Manager") normalizedMemberRole = "PM";
+      else if (member.role === "Team Lead") normalizedMemberRole = "TEAM_LEAD";
+      else if (member.role === "Member") normalizedMemberRole = "MEMBER";
+
+      const matchesRole = roleFilter === "all" || normalizedMemberRole === roleFilter;
 
       return matchesSearch && matchesRole;
     })
@@ -280,7 +267,8 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
           <Search
             placeholder={messages["team.searchMembers"] as string}
             allowClear
-            onSearch={handleSearch}
+            onChange={(e) => handleSearch(e.target.value)}
+            value={searchQuery}
             style={{ width: 300 }}
             prefix={<SearchOutlined />}
           />
@@ -380,10 +368,12 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
                     }}
                   >
                     {
-                      filteredMembers.filter(
-                        (m) =>
-                          m.role === TeamRole.TEAM_LEAD || m.role === TeamRole.PM
-                      ).length
+                      filteredMembers.filter((m) => {
+                        const normalizedRole = m.role === "Project Manager" ? "PM" : 
+                                              m.role === "Team Lead" ? "TEAM_LEAD" : 
+                                              m.role === "Member" ? "MEMBER" : m.role;
+                        return normalizedRole === "TEAM_LEAD" || normalizedRole === "PM";
+                      }).length
                     }
                   </div>
                   <div style={{ color: "#666" }}><IntlMessages id="team.teamLeads" /></div>
@@ -399,8 +389,12 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
                     }}
                   >
                     {
-                      filteredMembers.filter((m) => m.role === TeamRole.MEMBER)
-                        .length
+                      filteredMembers.filter((m) => {
+                        const normalizedRole = m.role === "Project Manager" ? "PM" : 
+                                              m.role === "Team Lead" ? "TEAM_LEAD" : 
+                                              m.role === "Member" ? "MEMBER" : m.role;
+                        return normalizedRole === "MEMBER";
+                      }).length
                     }
                   </div>
                   <div style={{ color: "#666" }}><IntlMessages id="team.members" /></div>
@@ -409,167 +403,7 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
             </Row>
           </div>
 
-          {/* More content to ensure scrolling */}
-          <div
-            style={{
-              marginTop: 24,
-              padding: 24,
-              backgroundColor: "#f6ffed",
-              borderRadius: 8,
-            }}
-          >
-            <h3 style={{ marginBottom: 16 }}>Recent Activity</h3>
-            <div style={{ maxHeight: 200, overflow: "auto" }}>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e8" }}
-              >
-                <strong>John Doe</strong> joined the team as Owner
-                <span style={{ color: "#666", float: "right" }}>
-                  2 hours ago
-                </span>
-              </div>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e" }}
-              >
-                <strong>Joe Root</strong> was promoted to Admin
-                <span style={{ color: "#666", float: "right" }}>1 day ago</span>
-              </div>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e" }}
-              >
-                <strong>Johnson</strong> completed 5 tasks
-                <span style={{ color: "#666", float: "right" }}>
-                  2 days ago
-                </span>
-              </div>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e" }}
-              >
-                <strong>Monty Panesar</strong> updated profile
-                <span style={{ color: "#666", float: "right" }}>
-                  3 days ago
-                </span>
-              </div>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e" }}
-              >
-                <strong>Sarah Wilson</strong> joined the team as Member
-                <span style={{ color: "#666", float: "right" }}>
-                  1 week ago
-                </span>
-              </div>
-              <div
-                style={{ padding: "8px 0", borderBottom: "1px solid #e8e8e" }}
-              >
-                <strong>Mike Johnson</strong> was assigned to new board
-                <span style={{ color: "#666", float: "right" }}>
-                  1 week ago
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <div
-            style={{
-              marginTop: 24,
-              padding: 24,
-              backgroundColor: "#fff2e8",
-              borderRadius: 8,
-            }}
-          >
-            <h3 style={{ marginBottom: 16 }}>Team Performance</h3>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12}>
-                <div
-                  style={{
-                    padding: 16,
-                    backgroundColor: "white",
-                    borderRadius: 8,
-                  }}
-                >
-                  <h4 style={{ margin: "0 0 8px 0" }}>
-                    📈 Task Completion Rate
-                  </h4>
-                  <div
-                    style={{
-                      fontSize: 32,
-                      fontWeight: "bold",
-                      color: "#52c41a",
-                    }}
-                  >
-                    87%
-                  </div>
-                  <div style={{ color: "#666" }}>Above team average</div>
-                </div>
-              </Col>
-              <Col xs={24} sm={12}>
-                <div
-                  style={{
-                    padding: 16,
-                    backgroundColor: "white",
-                    borderRadius: 8,
-                  }}
-                >
-                  <h4 style={{ margin: "0 0 8px 0" }}>
-                    ⏱️ Average Response Time
-                  </h4>
-                  <div
-                    style={{
-                      fontSize: 32,
-                      fontWeight: "bold",
-                      color: "#1890ff",
-                    }}
-                  >
-                    2.3h
-                  </div>
-                  <div style={{ color: "#666" }}>Within SLA</div>
-                </div>
-              </Col>
-            </Row>
-          </div>
-
-          <div
-            style={{
-              marginTop: 24,
-              padding: 24,
-              backgroundColor: "#fff7e6",
-              borderRadius: 8,
-            }}
-          >
-            <h3 style={{ marginBottom: 16 }}>Quick Actions</h3>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12}>
-                <div
-                  style={{
-                    padding: 16,
-                    border: "1px solid #d9d9d9",
-                    borderRadius: 8,
-                  }}
-                >
-                  <h4>📊 Export Team Data</h4>
-                  <p style={{ color: "#666", margin: 0 }}>
-                    Export team member list and their roles to CSV or Excel
-                    format.
-                  </p>
-                </div>
-              </Col>
-              <Col xs={24} sm={12}>
-                <div
-                  style={{
-                    padding: 16,
-                    border: "1px solid #d9d9d9",
-                    borderRadius: 8,
-                  }}
-                >
-                  <h4>📧 Send Invitations</h4>
-                  <p style={{ color: "#666", margin: 0 }}>
-                    Send email invitations to new team members with role
-                    assignments.
-                  </p>
-                </div>
-              </Col>
-            </Row>
-          </div>
         </div>
       </div>
 

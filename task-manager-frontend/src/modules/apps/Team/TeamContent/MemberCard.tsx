@@ -189,16 +189,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
           </Tag>
         </StyledMemberInfo>
 
-        <StyledMemberStats>
-          <div>
-            <strong>{member.boards || 0}</strong>
-            <span><IntlMessages id="team.boards" /></span>
-          </div>
-          <div>
-            <strong>{member.tasks || 0}</strong>
-            <span><IntlMessages id="team.tasks" /></span>
-          </div>
-        </StyledMemberStats>
+
       </StyledMemberCard>
     </>
   );

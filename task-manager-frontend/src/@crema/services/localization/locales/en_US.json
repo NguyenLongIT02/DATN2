@@ -999,6 +999,8 @@
   "team.memberRemovedFromBoard": "Member removed from board successfully",
   "team.memberRemovedFromTeam": "Member removed from team successfully",
   "team.failedToRemoveMember": "Failed to remove member",
+  "team.teamManagement": "Team Management",
+  "team.rolesAndPermissions": "Roles & Permissions",
   "automation.rules": "Automation Rules",
   "automation.status.active": "Active",
   "automation.status.inactive": "Inactive",

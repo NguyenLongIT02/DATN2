@@ -1001,6 +1001,8 @@
   "team.memberRemovedFromBoard": "Đã xóa thành viên khỏi bảng thành công",
   "team.memberRemovedFromTeam": "Đã xóa thành viên khỏi nhóm thành công",
   "team.failedToRemoveMember": "Không thể xóa thành viên",
+  "team.teamManagement": "Quản lý nhóm",
+  "team.rolesAndPermissions": "Vai trò & Quyền hạn",
   "automation.rules": "Quy tắc Tự động hóa",
   "automation.status.active": "Hoạt động",
   "automation.status.inactive": "Không hoạt động",
