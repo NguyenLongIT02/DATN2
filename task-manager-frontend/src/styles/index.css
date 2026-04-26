@@ -1,0 +1,21 @@
+@import "antd/dist/reset.css";
+@import "country-flag/sprite-flags-24x24.css";
+@import "ql-editor.css";
+
+/* Ensure notifications and messages are always visible */
+.ant-message {
+  z-index: 9999 !important;
+}
+
+.ant-notification {
+  z-index: 9999 !important;
+}
+
+/* Ensure message and notification containers are properly positioned */
+.ant-message-notice {
+  z-index: 9999 !important;
+}
+
+.ant-notification-notice {
+  z-index: 9999 !important;
+}

@@ -1,0 +1,116 @@
+server:
+  port: ${SERVER_PORT:8081}
+  error:
+    include-stacktrace: never
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: ${SPRING_APP_NAME:nguyenlong-backend}
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  datasource:
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      max-lifetime: 1200000
+      connection-timeout: 5000
+      leak-detection-threshold: 30000
+      validation-timeout: 3000
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  messages:
+    basename: i18n/message
+    encoding: UTF-8
+    fallback-to-system-locale: false
+  data:
+    redis:
+      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
+
+logging:
+  level:
+    # Hibernate
+    org.hibernate.orm.deprecation: ERROR
+    org.hibernate.orm.connections.pooling: ERROR
+    org.hibernate.engine.transaction.jta.platform.internal.JtaPlatformInitiator: ERROR
+    org.hibernate.jpa.boot.internal: ERROR
+
+    # Spring Security
+    org.springframework.security.web.FilterChainProxy: WARN
+    org.springframework.security.authentication: WARN
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
+
+    # Spring Web
+    org.springframework.web: WARN
+
+    # HikariCP
+    com.zaxxer.hikari: ERROR
+
+    # Event processing - enable detailed logging
+    vn.nguyenlong.taskmanager: INFO
+    org.springframework.kafka: INFO
+
+api:
+  prefix: ${API_PREFIX:/api/v1}
+domain:
+  protocol: ${DOMAIN_PROTOCOL:http://localhost:8081}
+
+jwt:
+  expiration: ${JWT_EXPIRATION:1800000} # 30 minutes = 1000 * 60 * 30
+  expiration-refresh-token: ${JWT_EXPIRATION_REFRESH_TOKEN:1209600000} #  2 weeks
+  secretKey: ${JWT_SECRET_KEY}
+  refreshKey: ${JWT_REFRESH_KEY}
+
+##Swagger-ui custom path
+springdoc:
+  swagger-ui:
+    path: ${SWAGGER_UI_PATH:/swagger-ui.html}
+    try-it-out-enabled: ${SWAGGER_TRY_IT_OUT_ENABLED:true}
+    filter: ${SWAGGER_FILTER:true}
+
+##Custom documentation Swagger-UI
+open:
+  api:
+    title: ${OPEN_API_TITLE:Nguyen Long Task Manager API}
+    version: ${OPEN_API_VERSION:v1.0.0}
+    description: ${OPEN_API_DESCRIPTION:API documentation for Nguyen Long Task Manager}
+    serverUrl: ${OPEN_API_SERVER_URL:http://localhost:8081}
+    serverName: ${OPEN_API_SERVER_NAME:Local Environment}
+
+ai:
+  assistant:
+    enabled: ${AI_ASSISTANT_ENABLED:true}
+    provider: ${AI_PROVIDER:groq}
+    base-url: ${AI_BASE_URL:https://api.groq.com/openai/v1}
+    api-key: ${GROQ_API_KEY:${AI_API_KEY:}}
+    model: ${AI_MODEL:llama-3.1-8b-instant}
+    temperature: ${AI_TEMPERATURE:0.4}
+    max-tokens: ${AI_MAX_TOKENS:800}
+    timeout-ms: ${AI_TIMEOUT_MS:20000}
