@@ -53,6 +53,14 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedCard, setSelectedCard] = useState<CardObjType | null>(null);
 
+  // ─── Phân quyền theo vai trò ─────────────────────────────────────────────────
+  const userRole = boardDetail.userRole;
+  const isPM = userRole === "Project Manager";
+  const isTeamLead = userRole === "Team Lead";
+  const isMember = userRole === "Member";
+  const canManageBoard = isPM || isTeamLead; // Có quyền chỉnh sửa board/thẻ
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // ─── WebSocket callbacks (wrapped with useCallback to avoid infinite loops) ─────
   const handleCardCreated = useCallback(
     (message: WebSocketMessage) => {
@@ -361,6 +369,10 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
   };
 
   const onAddList = (name: string) => {
+    if (!canManageBoard) {
+      infoViewActionsContext.fetchError("Bạn không có quyền thêm danh sách!");
+      return;
+    }
     postDataApi("/scrumboard/add/list", infoViewActionsContext, {
       name,
       boardId: boardDetail?.id,
@@ -402,6 +414,10 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
     _cardDetails: any
   ) => {
     if (sourceLaneId === targetLaneId) return;
+    if (!canManageBoard) {
+      infoViewActionsContext.fetchError("Bạn không có quyền di chuyển thẻ!");
+      return;
+    }
 
     const numericCardId = Number(cardId);
     const numericSourceId = Number(sourceLaneId);
@@ -500,26 +516,40 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
 
       <Board
         laneStyle={{ backgroundColor: theme.palette.background.default }}
-        editable
-        canAddLanes
+        editable={canManageBoard}
+        canAddLanes={canManageBoard}
         data={boardData}
         handleDragEnd={handleDragCard}
-        onCardAdd={(_: CardObjType, laneId: number) => onClickAddCard(laneId)}
+        onCardAdd={(_: CardObjType, laneId: number) => {
+          if (!canManageBoard) {
+            infoViewActionsContext.fetchError("Bạn không có quyền thêm thẻ!");
+            return;
+          }
+          onClickAddCard(laneId);
+        }}
         onCardClick={(cardId: number, _: any) => onEditCardDetail(cardId)}
         onLaneAdd={(name: string) => onAddList(name)}
         onLaneUpdate={(laneId: number, data: CardObjType) => {
+          if (!canManageBoard) return;
           const lane = boardData.lanes.find((item) => item.id === laneId);
           if (lane) onEditBoardList(lane, data);
         }}
-        onLaneDelete={(laneId: number) => onDeleteSelectedList(laneId)}
+        onLaneDelete={(laneId: number) => {
+          if (!isPM) {
+            infoViewActionsContext.fetchError("Chỉ Project Manager mới có quyền xóa danh sách!");
+            return;
+          }
+          onDeleteSelectedList(laneId);
+        }}
         components={{
           Card: BoardCard,
           LaneHeader: ListHeader,
-          AddCardLink: (props: any) => (
-            <AddCardButton {...props} onClickAddCard={onClickAddCard} />
-          ),
-          NewLaneForm: AddNewList,
-          NewLaneSection: NewListButton,
+          AddCardLink: (props: any) =>
+            canManageBoard ? (
+              <AddCardButton {...props} onClickAddCard={onClickAddCard} />
+            ) : null,
+          NewLaneForm: canManageBoard ? AddNewList : undefined,
+          NewLaneSection: canManageBoard ? NewListButton : () => null,
         }}
       />
 

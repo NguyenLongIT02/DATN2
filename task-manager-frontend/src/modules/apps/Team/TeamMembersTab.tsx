@@ -28,6 +28,7 @@ import IntlMessages from "@crema/helpers/IntlMessages";
 import AppScrollbar from "@crema/components/AppScrollbar";
 import InviteMemberModal from "@crema/components/InviteMemberModal";
 import { useIntl } from "react-intl";
+import { useAuthUser } from "@crema/hooks/AuthHooks";
 
 const { Search } = Input;
 const { Option } = Select;
@@ -49,9 +50,53 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
   const [roleFilter, setRoleFilter] = useState<string | "all">("all");
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   const { messages } = useIntl();
+  const { user } = useAuthUser();
 
-  // Mock current user role - trong thực tế sẽ lấy từ context/auth
-  const currentUserRole = "PM";
+  // Extract user email from JWT token directly since useAuthUser might be empty on refresh
+  const getEmailFromToken = () => {
+    if (user?.email) return user.email;
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (token) {
+        // Parse JWT payload safely
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        const payload = JSON.parse(jsonPayload);
+        return payload.sub || payload.username || payload.email;
+      }
+    } catch (e) {
+      console.error("Failed to parse token", e);
+    }
+    return null;
+  };
+
+  const userEmail = getEmailFromToken();
+
+  // Find current user's role in the board
+  const currentUserBoardMember = boardMembers.find((bm) => {
+    // Match exact username, email, or name
+    if (bm.member?.email === userEmail || bm.member?.username === userEmail || bm.member?.name === userEmail) {
+      return true;
+    }
+    // Fallback cho tài khoản demo: JWT trả về 'nguyenlong' nhưng email trên list là 'vinhlongnguyen0210@gmail.com'
+    if (userEmail === 'nguyenlong' && bm.member?.email === 'vinhlongnguyen0210@gmail.com') {
+      return true;
+    }
+    return false;
+  });
+  
+  // Ánh xạ chuỗi role từ backend sang TeamRole format để dùng trong UI
+  let currentUserRole = "VIEWER";
+  if (currentUserBoardMember?.role === "Project Manager") {
+    currentUserRole = "PM";
+  } else if (currentUserBoardMember?.role === "Team Lead") {
+    currentUserRole = "TEAM_LEAD";
+  } else if (currentUserBoardMember?.role === "Member") {
+    currentUserRole = "MEMBER";
+  }
 
   const loadMembers = async () => {
     setLoading(true);
@@ -109,16 +154,32 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
     }
   };
 
-  const filteredMembers = members.filter((member) => {
-    const matchesSearch =
-      !searchQuery ||
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredMembers = members
+    .filter((member) => {
+      const matchesSearch =
+        !searchQuery ||
+        member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = roleFilter === "all" || member.role === roleFilter;
+      const matchesRole = roleFilter === "all" || member.role === roleFilter;
 
-    return matchesSearch && matchesRole;
-  });
+      return matchesSearch && matchesRole;
+    })
+    .sort((a, b) => {
+      const roleOrder: Record<string, number> = {
+        "Project Manager": 1,
+        "PM": 1,
+        "Team Lead": 2,
+        "TEAM_LEAD": 2,
+        "Member": 3,
+        "MEMBER": 3,
+      };
+
+      const orderA = roleOrder[a.role || "Member"] || 4;
+      const orderB = roleOrder[b.role || "Member"] || 4;
+
+      return orderA - orderB;
+    });
 
   const roleOptions = [
     { value: "PM", label: `${getRoleIcon("PM")} Project Manager` },
@@ -200,7 +261,7 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
               type="primary"
               icon={<MailOutlined />}
               onClick={() => setIsInviteModalVisible(true)}
-              disabled={!boardId || currentUserRole !== "PM"}
+              disabled={!boardId || (currentUserRole !== "PM" && currentUserRole !== "TEAM_LEAD")}
             >
               <IntlMessages id="team.inviteMember" />
             </Button>
@@ -523,6 +584,7 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
           }}
           boardId={boardId}
           boardName={boardName || `Board #${boardId}`}
+          userRole={currentUserBoardMember?.role || ""}
           existingMembers={boardMembers.map((bm) => ({
             id: bm.memberId,
             name: bm.member?.name || "",

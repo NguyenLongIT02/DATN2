@@ -8,16 +8,17 @@ import {
   Form,
   Input,
   Button,
+  Select,
   message,
   Typography,
   Space,
   Divider,
 } from "antd";
 import { UserAddOutlined, MailOutlined } from "@ant-design/icons";
-import IntlMessages from "@crema/helpers/IntlMessages";
 import { invitationService } from "@crema/services/InvitationService";
 
 const { Text } = Typography;
+const { Option } = Select;
 
 interface InviteMemberModalProps {
   visible: boolean;
@@ -30,10 +31,12 @@ interface InviteMemberModalProps {
     name: string;
     email: string;
   }>;
+  userRole?: string;
 }
 
 interface InviteFormData {
   email: string;
+  roleName: string;
 }
 
 const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
@@ -43,39 +46,40 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   boardId,
   boardName,
   existingMembers = [],
+  userRole,
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // PM có thể chọn Team Lead hoặc Member; Team Lead chỉ mời được Member
+  const isPM = userRole === "Project Manager";
+
   const handleInvite = async (values: InviteFormData) => {
     setLoading(true);
     try {
-      // Check if user is already a member
       const isAlreadyMember = existingMembers.some(
         (member) => member.email.toLowerCase() === values.email.toLowerCase()
       );
-
       if (isAlreadyMember) {
-        setErrorMessage("User is already a member of this board");
+        setErrorMessage("Người dùng này đã là thành viên của board!");
+        setLoading(false);
         return;
       }
-
-      const response = await invitationService.inviteUserToBoard(
+      await invitationService.inviteUserToBoard(
         boardId,
-        values.email
+        values.email,
+        values.roleName || "Member"
       );
-
-      message.success(`Invitation sent to ${values.email} successfully!`);
+      message.success(`Đã gửi lời mời đến ${values.email} thành công!`);
       form.resetFields();
       setErrorMessage(null);
       onSuccess();
     } catch (error: any) {
-      console.error("Invite error:", error);
       const errorMsg =
         error.response?.data?.message ||
         error.message ||
-        "Failed to send invitation. Please try again.";
+        "Gửi lời mời thất bại. Vui lòng thử lại.";
       setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
@@ -88,19 +92,19 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     onCancel();
   };
 
-  // Clear error message when modal opens
   useEffect(() => {
     if (visible) {
       setErrorMessage(null);
+      form.setFieldsValue({ roleName: "Member" });
     }
-  }, [visible]);
+  }, [visible, form]);
 
   return (
     <Modal
       title={
         <Space>
           <UserAddOutlined />
-          <span>Invite Member to Board</span>
+          <span>Mời thành viên vào Board</span>
         </Space>
       }
       open={visible}
@@ -111,22 +115,27 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     >
       <div style={{ marginBottom: 16 }}>
         <Text type="secondary">
-          Invite someone to join <strong>{boardName}</strong>
+          Mời người dùng tham gia <strong>{boardName}</strong>
         </Text>
         {errorMessage && (
-          <div style={{ marginTop: 8, color: "#ff4d4f" }}>
+          <div style={{ marginTop: 8 }}>
             <Text type="danger">{errorMessage}</Text>
           </div>
         )}
       </div>
 
-      <Form form={form} layout="vertical" onFinish={handleInvite}>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleInvite}
+        initialValues={{ roleName: "Member" }}
+      >
         <Form.Item
           name="email"
-          label="Email Address"
+          label="Địa chỉ Email"
           rules={[
-            { required: true, message: "Please enter email address" },
-            { type: "email", message: "Please enter a valid email" },
+            { required: true, message: "Vui lòng nhập địa chỉ email" },
+            { type: "email", message: "Email không hợp lệ" },
           ]}
         >
           <Input
@@ -136,15 +145,32 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           />
         </Form.Item>
 
+        <Form.Item
+          name="roleName"
+          label="Vai trò"
+          rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
+        >
+          <Select size="large" placeholder="Chọn vai trò">
+            {isPM && (
+              <Option value="Team Lead">
+                🎯 Team Lead — Quản lý nhóm, chỉnh sửa board & thẻ
+              </Option>
+            )}
+            <Option value="Member">
+              👤 Member — Xem bảng, bình luận & cập nhật checklist
+            </Option>
+          </Select>
+        </Form.Item>
+
         <Divider />
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button onClick={handleCancel} disabled={loading}>
-            Cancel
+            Hủy
           </Button>
           <Button type="primary" htmlType="submit" loading={loading}>
             <UserAddOutlined />
-            Send Invitation
+            Gửi lời mời
           </Button>
         </div>
       </Form>

@@ -86,7 +86,19 @@ public class BoardService {
             }
         }
         
-        return scrumboardMapper.toBoardDtoList(boards);
+        List<BoardDto> boardDtos = scrumboardMapper.toBoardDtoList(boards);
+        
+        // Populate current user's role for each board
+        for (BoardDto dto : boardDtos) {
+            boardMemberRepository.findByBoardIdAndUserIdWithRole(dto.getId(), currentUserId)
+                    .ifPresent(member -> {
+                        if (member.getBoardRole() != null) {
+                            dto.setUserRole(member.getBoardRole().getName());
+                        }
+                    });
+        }
+        
+        return boardDtos;
     }
 
     @Transactional(readOnly = true)
@@ -121,7 +133,17 @@ public class BoardService {
             }
         }
         
-        return scrumboardMapper.toBoardDto(board);
+        BoardDto dto = scrumboardMapper.toBoardDto(board);
+        
+        // Populate current user's role
+        boardMemberRepository.findByBoardIdAndUserIdWithRole(id, currentUserId)
+                .ifPresent(member -> {
+                    if (member.getBoardRole() != null) {
+                        dto.setUserRole(member.getBoardRole().getName());
+                    }
+                });
+                
+        return dto;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -249,7 +271,7 @@ public class BoardService {
     private BoardRoleEntity createDefaultPMRole(BoardEntity board) {
         BoardRoleEntity pmRole = new BoardRoleEntity();
         pmRole.setBoard(board);
-        pmRole.setName("PM");
+        pmRole.setName("Project Manager");
         pmRole.setDescription("Project Manager - Full access");
         pmRole.setIsDefault(false);
         pmRole.setCreatedBy("system");
@@ -264,7 +286,7 @@ public class BoardService {
     private BoardRoleEntity createDefaultTeamLeadRole(BoardEntity board) {
         BoardRoleEntity teamLeadRole = new BoardRoleEntity();
         teamLeadRole.setBoard(board);
-        teamLeadRole.setName("TEAM_LEAD");
+        teamLeadRole.setName("Team Lead");
         teamLeadRole.setDescription("Team Lead - Manage board and members");
         teamLeadRole.setIsDefault(false);
         teamLeadRole.setCreatedBy("system");
@@ -279,7 +301,7 @@ public class BoardService {
     private BoardRoleEntity createDefaultMemberRole(BoardEntity board) {
         BoardRoleEntity memberRole = new BoardRoleEntity();
         memberRole.setBoard(board);
-        memberRole.setName("MEMBER");
+        memberRole.setName("Member");
         memberRole.setDescription("Board Member - Basic access");
         memberRole.setIsDefault(true);
         memberRole.setCreatedBy("system");

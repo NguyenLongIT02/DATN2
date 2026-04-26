@@ -29,15 +29,15 @@ public class AuthzServiceImpl implements AuthzService {
             return true;
         }
         
-        // 2. Kiểm tra board PM
+        // 2. Kiểm tra board Project Manager
         return boardMemberRepository.findByBoardIdAndUserIdWithRole(boardId, userId)
                 .map(BoardMemberEntity::getBoardRole)
-                .map(role -> role != null && "PM".equalsIgnoreCase(role.getName()))
+                .map(role -> role != null && "Project Manager".equalsIgnoreCase(role.getName()))
                 .orElse(false);
     }
     
     /**
-     * Check if user is board PM or TEAM_LEAD
+     * Check if user is board Project Manager or Team Lead
      */
     private boolean isBoardPMOrTeamLead(Long userId, Long boardId) {
         // 1. Global ADMIN có quyền PM trên tất cả board
@@ -45,11 +45,11 @@ public class AuthzServiceImpl implements AuthzService {
             return true;
         }
         
-        // 2. Kiểm tra board PM hoặc TEAM_LEAD
+        // 2. Kiểm tra board Project Manager hoặc Team Lead
         return boardMemberRepository.findByBoardIdAndUserIdWithRole(boardId, userId)
                 .map(BoardMemberEntity::getBoardRole)
                 .map(role -> role != null && 
-                    ("PM".equalsIgnoreCase(role.getName()) || "TEAM_LEAD".equalsIgnoreCase(role.getName())))
+                    ("Project Manager".equalsIgnoreCase(role.getName()) || "Team Lead".equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
     
@@ -76,7 +76,7 @@ public class AuthzServiceImpl implements AuthzService {
     
     @Override
     public boolean canDeleteBoard(Long userId, Long boardId) {
-        // Only PM can delete board (not TEAM_LEAD)
+        // Only Project Manager can delete board (not Team Lead)
         return isBoardOwner(userId, boardId);
     }
     
@@ -91,19 +91,19 @@ public class AuthzServiceImpl implements AuthzService {
     
     @Override
     public boolean canCreateList(Long userId, Long boardId) {
-        // PM or TEAM_LEAD: có thể tạo list
+        // Project Manager or Team Lead: có thể tạo list
         return isBoardPMOrTeamLead(userId, boardId);
     }
     
     @Override
     public boolean canEditList(Long userId, Long boardId) {
-        // PM or TEAM_LEAD: có thể sửa list
+        // Project Manager or Team Lead: có thể sửa list
         return isBoardPMOrTeamLead(userId, boardId);
     }
     
     @Override
     public boolean canDeleteList(Long userId, Long boardId) {
-        // PM or TEAM_LEAD: có thể xóa list
+        // Project Manager or Team Lead: có thể xóa list
         return isBoardPMOrTeamLead(userId, boardId);
     }
     
@@ -111,31 +111,32 @@ public class AuthzServiceImpl implements AuthzService {
     
     @Override
     public boolean canCreateCard(Long userId, Long boardId) {
-        // MEMBER: có thể tạo card
-        return isBoardMember(userId, boardId);
+        // Project Manager or Team Lead: có thể tạo card (Member không được tạo)
+        return isBoardPMOrTeamLead(userId, boardId);
     }
     
     @Override
     public boolean canEditCard(Long userId, Long boardId) {
-        // PM or TEAM_LEAD: có thể sửa card
+        // Project Manager or Team Lead: có thể sửa card
         return isBoardPMOrTeamLead(userId, boardId);
     }
     
     @Override
     public boolean canDeleteCard(Long userId, Long boardId) {
-        // PM or TEAM_LEAD: có thể xóa card
+        // Project Manager or Team Lead: có thể xóa card
         return isBoardPMOrTeamLead(userId, boardId);
     }
     
     @Override
     public boolean canUpdateCard(Long userId, Long boardId) {
-        // MEMBER: có thể update card (title, description, etc.)
+        // MEMBER: có thể update card (thường là comment, checklist, label - tùy frontend)
+        // Nhưng ở đây ta để là isBoardMember để họ có quyền cơ bản
         return isBoardMember(userId, boardId);
     }
     
     @Override
     public boolean canCategoryCard(Long userId, Long boardId) {
-        // Only PM or TEAM_LEAD can move cards between lists
+        // Only Project Manager or Team Lead can move cards between lists
         return isBoardPMOrTeamLead(userId, boardId);
     }
 }

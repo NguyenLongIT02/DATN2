@@ -11,16 +11,20 @@ export const getRoleColor = (role: TeamRole | string): string => {
   const roleStr = typeof role === 'string' ? role : String(role);
   switch (roleStr) {
     case 'PM':
+    case 'Project Manager':
       return 'red';
     case 'TEAM_LEAD':
+    case 'Team Lead':
       return 'purple';
     case 'ADMIN':
     case TeamRole.ADMIN:
       return 'blue';
     case 'MEMBER':
+    case 'Member':
     case TeamRole.MEMBER:
       return 'green';
     case 'VIEWER':
+    case 'Viewer':
     case TeamRole.VIEWER:
       return 'default';
     default:
@@ -35,16 +39,20 @@ export const getRoleIcon = (role: TeamRole | string): string => {
   const roleStr = typeof role === 'string' ? role : String(role);
   switch (roleStr) {
     case 'PM':
+    case 'Project Manager':
       return '👑';
     case 'TEAM_LEAD':
+    case 'Team Lead':
       return '📋';
     case 'ADMIN':
     case TeamRole.ADMIN:
       return '⚡';
     case 'MEMBER':
+    case 'Member':
     case TeamRole.MEMBER:
       return '👤';
     case 'VIEWER':
+    case 'Viewer':
     case TeamRole.VIEWER:
       return '👁️';
     default:
@@ -59,16 +67,20 @@ export const getRoleDisplayName = (role: TeamRole | string): string => {
   const roleStr = typeof role === 'string' ? role : String(role);
   switch (roleStr) {
     case 'PM':
+    case 'Project Manager':
       return 'Project Manager';
     case 'TEAM_LEAD':
+    case 'Team Lead':
       return 'Team Lead';
     case 'ADMIN':
     case TeamRole.ADMIN:
       return 'Admin';
     case 'MEMBER':
+    case 'Member':
     case TeamRole.MEMBER:
       return 'Member';
     case 'VIEWER':
+    case 'Viewer':
     case TeamRole.VIEWER:
       return 'Viewer';
     default:

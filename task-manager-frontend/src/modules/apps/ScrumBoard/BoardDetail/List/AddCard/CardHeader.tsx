@@ -19,6 +19,7 @@ type CardHeaderProps = {
   handleCancel?: () => void;
   board: BoardObjType;
   list: CardListObjType | null;
+  canDelete?: boolean;
 };
 
 const CardHeader: React.FC<CardHeaderProps> = ({
@@ -26,6 +27,7 @@ const CardHeader: React.FC<CardHeaderProps> = ({
   onAddAttachments,
   board,
   list,
+  canDelete = true,
 }) => {
   const {getRootProps, getInputProps} = useDropzone({
     accept: {
@@ -59,7 +61,9 @@ const CardHeader: React.FC<CardHeaderProps> = ({
           }
         />
 
-        <AppIconButton icon={<AiOutlineDelete />} onClick={onClickDeleteIcon} />
+        {canDelete && (
+          <AppIconButton icon={<AiOutlineDelete />} onClick={onClickDeleteIcon} />
+        )}
       </StyledScrumBoardCardHeaderAction>
     </StyledScrumBoardCardHeader>
   );

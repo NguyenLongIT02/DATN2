@@ -41,6 +41,7 @@ public class CardService {
     private final vn.nguyenlong.taskmanager.notifications.repository.NotificationRepository notificationRepository;
     private final CommentRepository commentRepository;
     private final AttachmentRepository attachmentRepository;
+    private final BoardMemberRepository boardMemberRepository;
 
     @Transactional(readOnly = true)
     public List<CardDto> getCardsByListId(Long listId) {
@@ -294,18 +295,41 @@ public class CardService {
     }
 
     private void addMembersToCard(Long cardId, List<Long> memberIds) {
+        CardEntity card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found with id: " + cardId));
+        Long boardId = card.getList().getBoard().getId();
+        String boardName = card.getList().getBoard().getName();
+        Long currentUserId = vn.nguyenlong.taskmanager.core.auth.util.SecurityContextUtils.getCurrentUserId();
+
         for (Long memberId : memberIds) {
             if (!cardMemberRepository.existsByCardIdAndUserId(cardId, memberId)) {
                 User user = userRepository.findById(memberId)
                         .orElseThrow(() -> new NotFoundException("User not found with id: " + memberId));
                 
-                CardEntity card = cardRepository.findById(cardId)
-                        .orElseThrow(() -> new NotFoundException("Card not found with id: " + cardId));
-                
                 CardMemberEntity cardMember = new CardMemberEntity();
                 cardMember.setCard(card);
                 cardMember.setUser(user);
                 cardMemberRepository.save(cardMember);
+
+                // Lấy vai trò của người này trong dự án (nếu có)
+                String roleName = "Member";
+                var boardMember = boardMemberRepository.findByBoardIdAndUserId(boardId, memberId);
+                if (boardMember.isPresent() && boardMember.get().getBoardRole() != null) {
+                    roleName = boardMember.get().getBoardRole().getName();
+                }
+
+                // Gửi thông báo phân công nhiệm vụ
+                if (currentUserId != null && !memberId.equals(currentUserId)) {
+                    String title = "Phân công công việc: " + card.getTitle();
+                    String message = "Bạn được phân công thẻ \"" + card.getTitle() + "\" trong dự án \"" + boardName + "\".";
+                    
+                    notificationService.createNotification(
+                        "CARD_ASSIGNED",
+                        title,
+                        message,
+                        memberId, boardId, cardId, currentUserId, null
+                    );
+                }
             }
         }
     }
@@ -327,13 +351,54 @@ public class CardService {
         }
     }
 
-    private void updateCardMembers(Long cardId, List<Long> memberIds) {
-        // Remove existing members
-        cardMemberRepository.deleteByCardId(cardId);
-        
-        // Add new members
-        if (!memberIds.isEmpty()) {
-            addMembersToCard(cardId, memberIds);
+    private void updateCardMembers(Long cardId, List<Long> newMemberIds) {
+        CardEntity card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found with id: " + cardId));
+        Long boardId = card.getList().getBoard().getId();
+        String boardName = card.getList().getBoard().getName();
+        Long currentUserId = vn.nguyenlong.taskmanager.core.auth.util.SecurityContextUtils.getCurrentUserId();
+
+        List<Long> existingMemberIds = cardMemberRepository.findByCardId(cardId).stream()
+                .map(cm -> cm.getUser().getId())
+                .toList();
+
+        // Remove members not in new list
+        for (Long oldId : existingMemberIds) {
+            if (!newMemberIds.contains(oldId)) {
+                cardMemberRepository.deleteByCardIdAndUserId(cardId, oldId);
+            }
+        }
+
+        // Add members not in old list and notify them
+        for (Long newId : newMemberIds) {
+            if (!existingMemberIds.contains(newId)) {
+                User user = userRepository.findById(newId)
+                        .orElseThrow(() -> new NotFoundException("User not found with id: " + newId));
+                CardMemberEntity cm = new CardMemberEntity();
+                cm.setCard(card);
+                cm.setUser(user);
+                cardMemberRepository.save(cm);
+
+                // Lấy vai trò của người này trong dự án (nếu có)
+                String roleName = "Member";
+                var boardMember = boardMemberRepository.findByBoardIdAndUserId(boardId, newId);
+                if (boardMember.isPresent() && boardMember.get().getBoardRole() != null) {
+                    roleName = boardMember.get().getBoardRole().getName();
+                }
+
+                // Gửi thông báo phân công nhiệm vụ
+                if (currentUserId != null && !newId.equals(currentUserId)) {
+                    String title = "Phân công công việc: " + card.getTitle();
+                    String message = "Bạn được phân công thẻ \"" + card.getTitle() + "\" trong dự án \"" + boardName + "\".";
+                    
+                    notificationService.createNotification(
+                        "CARD_ASSIGNED",
+                        title,
+                        message,
+                        newId, boardId, cardId, currentUserId, null
+                    );
+                }
+            }
         }
     }
 

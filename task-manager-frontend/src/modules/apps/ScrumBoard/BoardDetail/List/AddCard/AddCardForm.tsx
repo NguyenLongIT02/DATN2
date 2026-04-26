@@ -55,7 +55,8 @@ type AddCardFormProps = {
   onCloseAddCard: () => void;
   isSubmitting?: boolean;
   setData?: (data: BoardObjType) => void;
-  refreshTrigger?: number; 
+  refreshTrigger?: number;
+  canManageBoard?: boolean;
 };
 
 const AddCardForm: React.FC<AddCardFormProps> = ({
@@ -76,6 +77,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
   isSubmitting,
   setData,
   refreshTrigger,
+  canManageBoard = true,
 }) => {
   const { messages } = useIntl();
   const [form] = Form.useForm();
@@ -336,7 +338,10 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
           <AppRowContainer>
             <Col xs={24} md={16}>
               <Form.Item name="title">
-                <Input placeholder={messages["common.title"] as string} />
+                <Input
+                  placeholder={messages["common.title"] as string}
+                  disabled={!canManageBoard}
+                />
               </Form.Item>
             </Col>
 
@@ -347,6 +352,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
                   format="MM/DD/YYYY"
                   placeholder="Chọn ngày"
                   allowClear
+                  disabled={!canManageBoard}
                   disabledDate={(current) => {
                     if (!current) return false;
                     const tooEarly = board.startDate ? current < dayjs(board.startDate).startOf("day") : false;
@@ -362,6 +368,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
             <TextArea
               autoSize={{ minRows: 3, maxRows: 5 }}
               placeholder={messages["common.description"] as string}
+              disabled={!canManageBoard}
             />
           </Form.Item>
 
@@ -375,6 +382,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
                   style={{ width: "100%" }}
                   placeholder="Chọn nhãn"
                   onChange={(value) => updateLabelList(value)}
+                  disabled={!canManageBoard}
                 >
                   {Array.isArray(labelList) &&
                     labelList.map((label: LabelObjType) => {
@@ -408,6 +416,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
                   maxTagCount={2}
                   placeholder="Chọn thành viên"
                   onChange={(value) => updateMemberList(value)}
+                  disabled={!canManageBoard}
                 >
                   {Array.isArray(memberList) && memberList.length > 0 ? (
                     memberList.map((member: MemberObjType) => {
@@ -457,9 +466,11 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
         <Button type="primary" ghost onClick={onCloseAddCard}>
           <IntlMessages id="common.cancel" />
         </Button>
-        <Button type="primary" disabled={isSubmitting} htmlType="submit">
-          <IntlMessages id="common.done" />
-        </Button>
+        {canManageBoard && (
+          <Button type="primary" disabled={isSubmitting} htmlType="submit">
+            <IntlMessages id="common.done" />
+          </Button>
+        )}
       </StyledScrumBoardAddCardFormFooter>
     </StyledScrumBoardAddCardForm>
   );

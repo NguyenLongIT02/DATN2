@@ -63,6 +63,7 @@ export type BoardObjType = {
   startDate?: string;
   endDate?: string;
   list: CardListObjType[];
+  userRole?: string;
   description?: string; // For backward compatibility
   color?: string; // For backward compatibility
   members?: MemberObjType[]; // For backward compatibility

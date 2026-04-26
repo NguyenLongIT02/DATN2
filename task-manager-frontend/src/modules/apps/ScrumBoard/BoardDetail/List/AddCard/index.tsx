@@ -41,6 +41,10 @@ const AddCard: React.FC<AddCardProps> = ({
   const infoViewActionsContext = useInfoViewActionsContext();
   const { user } = useAuthUser();
 
+  // Phân quyền
+  const userRole = board?.userRole;
+  const canManageBoard = userRole === "Project Manager" || userRole === "Team Lead";
+
   const [checkedList, setCheckedList] = useState(() => {
     const list = selectedCard?.checkedList;
     return Array.isArray(list) ? list : [];
@@ -120,6 +124,7 @@ const AddCard: React.FC<AddCardProps> = ({
           handleCancel={handleCancel}
           board={board}
           list={list}
+          canDelete={canManageBoard}
         />
       }
       onClose={handleCancel}
@@ -142,6 +147,7 @@ const AddCard: React.FC<AddCardProps> = ({
         onCloseAddCard={handleCancel}
         setData={setData}
         refreshTrigger={refreshTrigger}
+        canManageBoard={canManageBoard}
       />
 
       {isDeleteDialogOpen ? (

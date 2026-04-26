@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.nguyenlong.taskmanager.core.entity.SuccessResponse;
 import vn.nguyenlong.taskmanager.core.util.ResponseUtil;
@@ -14,7 +13,10 @@ import vn.nguyenlong.taskmanager.scrumboard.dto.response.MemberDto;
 import vn.nguyenlong.taskmanager.scrumboard.service.MemberService;
 import vn.nguyenlong.taskmanager.core.component.TranslateMessage;
 import vn.nguyenlong.taskmanager.util.MessageKeys;
+import vn.nguyenlong.taskmanager.scrumboard.security.AuthzService;
+import vn.nguyenlong.taskmanager.core.auth.repository.UserRepository;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -26,9 +28,11 @@ public class MemberController {
 
     private final MemberService memberService;
     private final TranslateMessage translateMessage;
+    private final AuthzService authzService;
+    private final UserRepository userRepository;
 
     @GetMapping("/{boardId}")
-    @Operation(summary = "Get board members", description = "Retrieve all members of a specific board")
+    @Operation(summary = "Get board members")
     public SuccessResponse<List<MemberDto>> getBoardMembers(
             @Parameter(description = "Board ID") @PathVariable Long boardId) {
         return ResponseUtil.ok(HttpStatus.OK.value(),
@@ -37,7 +41,7 @@ public class MemberController {
     }
 
     @GetMapping("/{boardId}/{userId}")
-    @Operation(summary = "Get specific board member", description = "Retrieve a specific member of a board")
+    @Operation(summary = "Get specific board member")
     public SuccessResponse<MemberDto> getBoardMember(
             @Parameter(description = "Board ID") @PathVariable Long boardId,
             @Parameter(description = "User ID") @PathVariable Long userId) {
@@ -47,7 +51,7 @@ public class MemberController {
     }
 
     @PostMapping("/{boardId}/{userId}")
-    @Operation(summary = "Add member to board", description = "Add a user as a member to a board")
+    @Operation(summary = "Add member to board")
     public SuccessResponse<String> addMemberToBoard(
             @Parameter(description = "Board ID") @PathVariable Long boardId,
             @Parameter(description = "User ID") @PathVariable Long userId) {
@@ -57,7 +61,7 @@ public class MemberController {
     }
 
     @DeleteMapping("/{boardId}/{userId}")
-    @Operation(summary = "Remove member from board", description = "Remove a user from a board")
+    @Operation(summary = "Remove member from board")
     public SuccessResponse<String> removeMemberFromBoard(
             @Parameter(description = "Board ID") @PathVariable Long boardId,
             @Parameter(description = "User ID") @PathVariable Long userId) {
@@ -67,11 +71,30 @@ public class MemberController {
     }
 
     @PutMapping("/{boardId}/{userId}/role")
-    @Operation(summary = "Update member role", description = "Update the role of a member in a board")
+    @Operation(summary = "Update member role",
+               description = "Chỉ Project Manager mới có quyền gán Team Lead. PM và Team Lead đều có thể đổi Member.")
     public SuccessResponse<String> updateMemberRole(
             @Parameter(description = "Board ID") @PathVariable Long boardId,
             @Parameter(description = "User ID") @PathVariable Long userId,
-            @Parameter(description = "New role") @RequestParam String role) {
+            @Parameter(description = "New role name") @RequestParam String role,
+            Principal principal) {
+
+        Long currentUserId = userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"))
+                .getId();
+
+        // Chỉ Project Manager mới được gán Team Lead
+        if ("Team Lead".equalsIgnoreCase(role)) {
+            if (!authzService.isBoardOwner(currentUserId, boardId)) {
+                throw new IllegalArgumentException("Chỉ Project Manager mới có quyền gán vai trò Team Lead.");
+            }
+        } else {
+            // Gán Member: cần là PM hoặc Team Lead
+            if (!authzService.canEditBoard(currentUserId, boardId)) {
+                throw new IllegalArgumentException("Bạn không có quyền thay đổi vai trò thành viên.");
+            }
+        }
+
         memberService.updateMemberRole(boardId, userId, role);
         return ResponseUtil.ok(HttpStatus.OK.value(),
                 translateMessage.translate(MessageKeys.MEMBER_UPDATE_ROLE_SUCCESS));

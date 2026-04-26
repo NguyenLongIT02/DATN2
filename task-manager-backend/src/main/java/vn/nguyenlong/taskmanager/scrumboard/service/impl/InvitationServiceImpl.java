@@ -75,19 +75,19 @@ public class InvitationServiceImpl implements InvitationService {
                 return apiError(HttpStatus.CONFLICT.value(), "Already member");
             }
             
-            // ✅ THAY ĐỔI: Tạo invitation cho cả user đã tồn tại
             Map<String, Object> payload = new HashMap<>();
             payload.put("email", request.getEmail());
             payload.put("boardId", boardId);
             payload.put("boardName", board.getName());
             payload.put("invitedById", currentUserId);
             
-            // Luôn assign MEMBER role cho invitation
-            BoardRoleEntity memberRole = boardRoleRepository.findByBoardIdAndIsDefaultTrue(boardId)
-                    .orElseThrow(() -> new NotFoundException("Default MEMBER role not found for board " + boardId));
-            Long roleId = memberRole.getId();
-            log.info("Assigned MEMBER role {} for invitation", roleId);
-            payload.put("roleId", roleId);
+            // Xác định role: chỉ cho phép Team Lead hoặc Member
+            String roleName = resolveRoleName(request.getRoleName());
+            BoardRoleEntity assignedRole = boardRoleRepository.findByBoardIdAndName(boardId, roleName)
+                    .orElseGet(() -> boardRoleRepository.findByBoardIdAndIsDefaultTrue(boardId)
+                            .orElseThrow(() -> new NotFoundException("Default Member role not found for board " + boardId)));
+            log.info("Assigned role '{}' (id={}) for invitation", assignedRole.getName(), assignedRole.getId());
+            payload.put("roleId", assignedRole.getId());
 
             String token = invitationTokenService.generateInvitationToken(payload, Duration.ofHours(INVITE_TTL_HOURS));
             String acceptLink = "http://localhost:8081/web/invitations/accept?token=" + token;
@@ -103,6 +103,7 @@ public class InvitationServiceImpl implements InvitationService {
             return res;
         }
 
+
         // User not existed -> create invitation token
         Map<String, Object> payload = new HashMap<>();
         payload.put("email", request.getEmail());
@@ -110,12 +111,13 @@ public class InvitationServiceImpl implements InvitationService {
         payload.put("boardName", board.getName());
         payload.put("invitedById", currentUserId);
         
-        // Luôn assign MEMBER role cho invitation
-        BoardRoleEntity memberRole = boardRoleRepository.findByBoardIdAndIsDefaultTrue(boardId)
-                .orElseThrow(() -> new NotFoundException("Default MEMBER role not found for board " + boardId));
-        Long roleId = memberRole.getId();
-        log.info("Assigned MEMBER role {} for invitation", roleId);
-        payload.put("roleId", roleId);
+        // Xác định role: chỉ cho phép Team Lead hoặc Member
+        String roleName = resolveRoleName(request.getRoleName());
+        BoardRoleEntity assignedRole = boardRoleRepository.findByBoardIdAndName(boardId, roleName)
+                .orElseGet(() -> boardRoleRepository.findByBoardIdAndIsDefaultTrue(boardId)
+                        .orElseThrow(() -> new NotFoundException("Default Member role not found for board " + boardId)));
+        log.info("Assigned role '{}' (id={}) for invitation", assignedRole.getName(), assignedRole.getId());
+        payload.put("roleId", assignedRole.getId());
 
         String token = invitationTokenService.generateInvitationToken(payload, Duration.ofHours(INVITE_TTL_HOURS));
         String acceptLink = backendBaseUrl + "/web/invitations/accept?token=" + token;
@@ -285,6 +287,17 @@ public class InvitationServiceImpl implements InvitationService {
         } catch (Exception e) {
             return "Someone";
         }
+    }
+
+    /**
+     * Xác định tên role hợp lệ khi mời: chỉ cho phép "Team Lead" hoặc "Member".
+     * "Project Manager" không được gán qua invitation.
+     */
+    private String resolveRoleName(String requested) {
+        if ("Team Lead".equalsIgnoreCase(requested)) {
+            return "Team Lead";
+        }
+        return "Member"; // mặc định
     }
 }
 

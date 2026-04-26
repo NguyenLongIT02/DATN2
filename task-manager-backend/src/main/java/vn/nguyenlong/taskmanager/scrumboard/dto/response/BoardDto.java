@@ -16,5 +16,6 @@ public class BoardDto {
     private String name;
     private String startDate;
     private String endDate;
+    private String userRole;
     private List<CardListDto> list;
 }

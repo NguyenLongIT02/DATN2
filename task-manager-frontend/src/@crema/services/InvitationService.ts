@@ -11,6 +11,7 @@ import { jwtAxios } from './auth/jwt-auth';
 
 export interface InviteRequest {
   email: string;
+  roleName?: string; // "Team Lead" hoặc "Member"
 }
 
 export interface InviteResponse {
@@ -40,11 +41,13 @@ class InvitationService {
    */
   public async inviteUserToBoard(
     boardId: number, 
-    email: string
+    email: string,
+    roleName?: string
   ): Promise<InviteResponse> {
     try {
       const response = await jwtAxios.post(`/scrumboard/boards/${boardId}/invite`, {
-        email: email
+        email: email,
+        roleName: roleName || 'Member'
       });
       
       if (response.data && response.data.status) {

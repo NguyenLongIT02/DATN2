@@ -29,6 +29,7 @@ export interface BoardMember {
 export interface TeamMember {
   id: number;
   name: string;
+  username?: string;
   email: string;
   avatar?: string;
   role?: string;
@@ -60,6 +61,7 @@ class BoardMemberService {
           member: {
             id: member.id,
             name: member.name,
+            username: member.username,
             email: member.email,
             avatar: member.avatar,
             lastActive: member.lastActive,
@@ -139,11 +141,17 @@ class BoardMemberService {
   public async updateMemberRole(
     boardId: number, 
     userId: number, 
-    role: 'PM' | 'TEAM_LEAD' | 'MEMBER'
+    role: 'PM' | 'TEAM_LEAD' | 'MEMBER' | string
   ): Promise<BoardMember> {
+    // Chuyển đổi enum/string từ frontend sang đúng định dạng string mà backend cần
+    let backendRoleName = role;
+    if (role === 'PM') backendRoleName = 'Project Manager';
+    else if (role === 'TEAM_LEAD') backendRoleName = 'Team Lead';
+    else if (role === 'MEMBER') backendRoleName = 'Member';
+
     try {
       const response = await jwtAxios.put(`/scrumboard/member/${boardId}/${userId}/role`, null, {
-        params: { role: role }
+        params: { role: backendRoleName }
       });
       
       if (response.data && response.data.status) {

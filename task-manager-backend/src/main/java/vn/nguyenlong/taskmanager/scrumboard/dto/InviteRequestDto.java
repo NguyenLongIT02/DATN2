@@ -10,6 +10,12 @@ public class InviteRequestDto {
     @NotBlank
     @Email
     private String email;
+
+    /**
+     * Vai trò được gán cho người được mời: "Team Lead" hoặc "Member".
+     * Mặc định là "Member" nếu không chỉ định.
+     */
+    private String roleName;
 }
 
 

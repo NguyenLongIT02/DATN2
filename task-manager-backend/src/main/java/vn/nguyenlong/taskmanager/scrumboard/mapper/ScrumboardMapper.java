@@ -51,6 +51,7 @@ public interface ScrumboardMapper {
     // Member mappings
     @Mapping(target = "id", source = "user.id")
     @Mapping(target = "name", source = "user.fullName")
+    @Mapping(target = "username", source = "user.username")
     @Mapping(target = "email", source = "user.email")
     @Mapping(target = "avatar", source = "user.profileImageUrl")
     @Mapping(target = "role", source = "boardRole.name")

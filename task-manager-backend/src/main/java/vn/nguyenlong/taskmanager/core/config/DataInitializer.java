@@ -406,36 +406,44 @@ public class DataInitializer implements CommandLineRunner {
             board.setCreatedBy("system"); board.setUpdatedBy("system");
             BoardEntity savedBoard = boardRepository.save(board);
 
-            // 3. Tạo 2 Roles mặc định cho Board
-            BoardRoleEntity ownerRole = new BoardRoleEntity(savedBoard, "OWNER", "Chủ sở hữu", false, new ArrayList<>());
+            // 3. Tạo các Roles mặc định cho Board
+            BoardRoleEntity ownerRole = new BoardRoleEntity(savedBoard, "Project Manager", "Chủ sở hữu dự án", false, new ArrayList<>());
             ownerRole.setCreatedBy("system"); ownerRole.setUpdatedBy("system");
             ownerRole = boardRoleRepository.save(ownerRole);
 
-            BoardRoleEntity memberRole = new BoardRoleEntity(savedBoard, "MEMBER", "Thành viên", true, new ArrayList<>());
+            BoardRoleEntity teamLeadRole = new BoardRoleEntity(savedBoard, "Team Lead", "Quản lý nhóm", false, new ArrayList<>());
+            teamLeadRole.setCreatedBy("system"); teamLeadRole.setUpdatedBy("system");
+            teamLeadRole = boardRoleRepository.save(teamLeadRole);
+
+            BoardRoleEntity memberRole = new BoardRoleEntity(savedBoard, "Member", "Thành viên", true, new ArrayList<>());
             memberRole.setCreatedBy("system"); memberRole.setUpdatedBy("system");
             memberRole = boardRoleRepository.save(memberRole);
 
-            // 4. Gán nguyenlong làm OWNER
+            // 4. Gán nguyenlong làm Project Manager
             addMember(savedBoard, longNguyen, ownerRole);
 
-            // Tự động tạo 1 thông báo mẫu cho nguyenlong
-            NotificationEntity notify = new NotificationEntity();
-            notify.setUser(longNguyen);
-            notify.setTitle("Dự án mới: " + pName);
-            notify.setMessage("Bạn đã được chỉ định làm Chủ sở hữu (Owner) cho dự án " + pName);
-            notify.setType("ASSIGNED");
-            notify.setIsRead(false);
-            notify.setActor(longNguyen);
-            notify.setCreatedAt(Instant.now());
-            notify.setCreatedBy("system"); notify.setUpdatedBy("system");
-            notificationRepository.save(notify);
+            // Thông báo cho nguyenlong - người tạo dự án
+            createNotification(longNguyen, longNguyen, savedBoard,
+                "Dự án mới: " + pName,
+                "Bạn đã tạo và đang làm Project Manager của dự án \"" + pName + "\".",
+                "PROJECT_CREATED");
 
-            // 5. Thêm 10 Members thực tế
+            // 5. Thêm 10 Members - tất cả mặc định là Member (PM tự cấp Team Lead sau)
+            List<User> boardUsers = new ArrayList<>();
+            boardUsers.add(longNguyen);
             for (int j = 0; j < 10; j++) {
                 User member = users.get((i * 10 + j) % users.size());
-                if (!member.getUsername().equals(longNguyen.getUsername())) {
-                    addMember(savedBoard, member, memberRole);
-                }
+                if (member.getUsername().equals(longNguyen.getUsername())) continue;
+
+                addMember(savedBoard, member, memberRole);
+                boardUsers.add(member);
+
+                // Thông báo cá nhân cho từng thành viên được thêm vào
+                String notifyTitle = "Bạn được mời tham gia: " + pName;
+                String notifyMsg = "Nguyễn Long (Project Manager) đã mời bạn tham gia dự án \"" + pName
+                        + "\" với vai trò Member. Hãy xem bảng và làm các nhiệm vụ được giao nhé!";
+                
+                createNotification(member, longNguyen, savedBoard, notifyTitle, notifyMsg, "BOARD_INVITATION");
             }
 
             // 6. Tạo đúng 3 cột: Cần làm, Đang làm, Hoàn thành và nạp Card
@@ -483,14 +491,26 @@ public class DataInitializer implements CommandLineRunner {
                         }
                     }
 
-                    // 4. Tự động gán Thành viên (Members) ngẫu nhiên
+                    // 4. Tự động gán Thành viên (Members) ngẫu nhiên (Chỉ lấy trong số các member của board)
                     int memberCount = (int) (Math.random() * 3) + 1;
                     for (int k = 0; k < memberCount; k++) {
-                        User randomUser = users.get((int) (Math.random() * users.size()));
-                        CardMemberEntity cm = new CardMemberEntity();
-                        cm.setCard(savedCard);
-                        cm.setUser(randomUser);
-                        cardMemberRepository.save(cm);
+                        User randomUser = boardUsers.get((int) (Math.random() * boardUsers.size()));
+                        
+                        // Kiểm tra xem user này đã được gán vào card chưa để tránh duplicate
+                        if (!cardMemberRepository.existsByCardIdAndUserId(savedCard.getId(), randomUser.getId())) {
+                            CardMemberEntity cm = new CardMemberEntity();
+                            cm.setCard(savedCard);
+                            cm.setUser(randomUser);
+                            cardMemberRepository.save(cm);
+                            
+                            // Gửi thông báo phân công nhiệm vụ cho member
+                            if (!randomUser.getUsername().equals(longNguyen.getUsername())) {
+                                createNotification(randomUser, longNguyen, savedBoard, 
+                                    "Phân công công việc: " + savedCard.getTitle(),
+                                    "Bạn được phân công thẻ \"" + savedCard.getTitle() + "\" trong dự án \"" + pName + "\".", 
+                                    "CARD_ASSIGNED");
+                            }
+                        }
                     }
                 }
             }
@@ -549,10 +569,26 @@ public class DataInitializer implements CommandLineRunner {
                 .user(user)
                 .boardRole(role)
                 .status("active")
-                .joinedAt(Instant.now())
+                .joinedAt(board.getStartDate() != null ? board.getStartDate() : Instant.now())
                 .build();
         member.setCreatedBy("system");
         member.setUpdatedBy("system");
         boardMemberRepository.save(member);
+    }
+
+    private void createNotification(User recipient, User actor, BoardEntity board,
+                                    String title, String message, String type) {
+        NotificationEntity notify = new NotificationEntity();
+        notify.setUser(recipient);
+        notify.setActor(actor);
+        notify.setBoard(board);
+        notify.setTitle(title);
+        notify.setMessage(message);
+        notify.setType(type);
+        notify.setIsRead(false);
+        notify.setCreatedAt(Instant.now());
+        notify.setCreatedBy("system");
+        notify.setUpdatedBy("system");
+        notificationRepository.save(notify);
     }
 }

@@ -94,11 +94,17 @@ const MemberCard: React.FC<MemberCardProps> = ({
   const getMenuItems = () => {
     const items = [];
 
+    // Chuẩn hóa role từ backend về format TeamRole để so sánh logic
+    let normalizedMemberRole = member.role as string;
+    if (member.role === 'Project Manager') normalizedMemberRole = 'PM';
+    else if (member.role === 'Team Lead') normalizedMemberRole = 'TEAM_LEAD';
+    else if (member.role === 'Member') normalizedMemberRole = 'MEMBER';
+
     // Change role menu - only PM can change roles, and cannot change own role
-    if (boardId && currentUserRole === TeamRole.PM && member.role !== currentUserRole) {
+    if (boardId && currentUserRole === TeamRole.PM && normalizedMemberRole !== currentUserRole) {
       const roleItems = [];
       
-      if (member.role !== 'PM') {
+      if (normalizedMemberRole !== 'PM') {
         roleItems.push({
           key: "role-pm",
           label: `${getRoleIcon('PM')} ${messages["team.rolePM"]}`,
@@ -106,7 +112,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         });
       }
       
-      if (member.role !== 'TEAM_LEAD') {
+      if (normalizedMemberRole !== 'TEAM_LEAD') {
         roleItems.push({
           key: "role-team-lead",
           label: `${getRoleIcon('TEAM_LEAD')} ${messages["team.roleTeamLead"]}`,
@@ -114,7 +120,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         });
       }
       
-      if (member.role !== 'MEMBER') {
+      if (normalizedMemberRole !== 'MEMBER') {
         roleItems.push({
           key: "role-member",
           label: `${getRoleIcon('MEMBER')} ${messages["team.roleMember"]}`,
@@ -135,8 +141,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
     // Delete member - PM can delete anyone except themselves, TEAM_LEAD can delete MEMBER
     if (
       boardId &&
-      ((currentUserRole === TeamRole.PM && member.role !== currentUserRole) ||
-      (currentUserRole === TeamRole.TEAM_LEAD && member.role === TeamRole.MEMBER))
+      ((currentUserRole === TeamRole.PM && normalizedMemberRole !== currentUserRole) ||
+      (currentUserRole === TeamRole.TEAM_LEAD && normalizedMemberRole === TeamRole.MEMBER))
     ) {
       const removeLabel = messages["team.removeFromBoard"] as string;
       items.push({

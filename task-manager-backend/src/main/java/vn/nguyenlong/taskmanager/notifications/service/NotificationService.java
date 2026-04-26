@@ -161,8 +161,30 @@ public class NotificationService {
             return;
         }
 
+        // If this is a card-related notification, find who is assigned to it
+        List<Long> assignedUserIds = null;
+        if (cardId != null) {
+            assignedUserIds = cardRepository.findByIdWithMembers(cardId)
+                    .map(card -> card.getMembers().stream()
+                            .map(cm -> cm.getUser().getId())
+                            .toList())
+                    .orElse(List.of());
+        }
+
         for (BoardMemberEntity boardMember : boardMembers) {
             Long recipientUserId = boardMember.getUser().getId();
+            
+            // Lọc thông báo: Member thường KHÔNG nhận thông báo thay đổi thẻ (cardId != null) TRỪ KHI họ được gán vào thẻ đó
+            if (cardId != null && boardMember.getBoardRole() != null) {
+                String roleName = boardMember.getBoardRole().getName();
+                boolean isManagerOrLead = "Project Manager".equalsIgnoreCase(roleName) || "Team Lead".equalsIgnoreCase(roleName);
+                boolean isAssigned = assignedUserIds != null && assignedUserIds.contains(recipientUserId);
+                
+                if (!isManagerOrLead && !isAssigned) {
+                    continue; // Bỏ qua, không gửi thông báo cho Member này
+                }
+            }
+
             try {
                 createNotification(type, titleKey, messageKey, recipientUserId, boardId, cardId, actorId, metadata, messageParams);
             } catch (Exception e) {
