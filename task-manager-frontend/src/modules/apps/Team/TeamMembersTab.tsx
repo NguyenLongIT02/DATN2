@@ -10,8 +10,11 @@ import {
   Table,
   Avatar,
   Tag,
+  Tooltip,
 } from "antd";
-import { SearchOutlined, UserOutlined, MailOutlined } from "@ant-design/icons";
+import { SearchOutlined, UserOutlined, MailOutlined, FilePdfOutlined, EyeOutlined } from "@ant-design/icons";
+import { exportMembersToPdf } from "@crema/helpers/exportMembersPdf";
+import MemberProgressModal from "@crema/components/MemberProgressModal";
 import {
   TeamMember,
   TeamRole,
@@ -49,6 +52,8 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | "all">("all");
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [isProgressModalVisible, setIsProgressModalVisible] = useState(false);
   const { messages } = useIntl();
   const { user } = useAuthUser();
 
@@ -211,6 +216,29 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
           : parsedDate.toLocaleDateString();
       },
     },
+    ...(boardId
+      ? [
+          {
+            title: "Tiến độ",
+            key: "action",
+            render: (_: unknown, record: TeamMember) => (
+              <Tooltip title="Xem tiến độ công việc">
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    setSelectedMember(record);
+                    setIsProgressModalVisible(true);
+                  }}
+                >
+                  Xem tiến độ
+                </Button>
+              </Tooltip>
+            ),
+          },
+        ]
+      : []),
   ];
 
   // Show message if no board selected
@@ -244,6 +272,21 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <Tooltip title="Xuất danh sách thành viên ra PDF">
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={() =>
+                  exportMembersToPdf(
+                    filteredMembers,
+                    boardName || `Board #${boardId}`,
+                    boardId
+                  )
+                }
+                disabled={filteredMembers.length === 0}
+              >
+                Xuất PDF
+              </Button>
+            </Tooltip>
             <Button
               type="primary"
               icon={<MailOutlined />}
@@ -322,12 +365,37 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
             <Row gutter={[16, 16]}>
               {filteredMembers.map((member) => (
                 <Col key={member.id} xs={24} sm={12} lg={8} xl={6}>
-                  <MemberCard
-                    member={member}
-                    currentUserRole={currentUserRole}
-                    onMemberUpdate={loadMembers}
-                    boardId={boardId}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <MemberCard
+                      member={member}
+                      currentUserRole={currentUserRole}
+                      onMemberUpdate={loadMembers}
+                      boardId={boardId}
+                    />
+                    {/* Nút xem tiến độ overlay */}
+                    {boardId && (
+                      <Tooltip title="Xem tiến độ công việc">
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<EyeOutlined />}
+                          style={{
+                            position: "absolute",
+                            bottom: 12,
+                            right: 12,
+                            borderRadius: 20,
+                            fontSize: 12,
+                          }}
+                          onClick={() => {
+                            setSelectedMember(member);
+                            setIsProgressModalVisible(true);
+                          }}
+                        >
+                          Tiến độ
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </div>
                 </Col>
               ))}
             </Row>
@@ -426,6 +494,18 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
           }))}
         />
       )}
+
+      {/* Member Progress Modal */}
+      <MemberProgressModal
+        visible={isProgressModalVisible}
+        member={selectedMember}
+        boardId={boardId}
+        boardName={boardName || `Board #${boardId}`}
+        onClose={() => {
+          setIsProgressModalVisible(false);
+          setSelectedMember(null);
+        }}
+      />
     </div>
   );
 };
