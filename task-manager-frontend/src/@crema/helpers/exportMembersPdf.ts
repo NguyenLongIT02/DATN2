@@ -2,7 +2,19 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { TeamMember } from "@crema/services/PermissionService";
 
-// Mapping role display names
+// ─────────────────────────────────────────────────────────────
+// Helper: chuyển ký tự tiếng Việt có dấu → không dấu
+// Đây là cách duy nhất để jsPDF (font Latin-1) hiển thị đúng
+// ─────────────────────────────────────────────────────────────
+const removeAccents = (str: string): string => {
+  if (!str) return "";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // xóa combining diacritical marks
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+};
+
 const ROLE_LABELS: Record<string, string> = {
   PM: "Project Manager",
   "Project Manager": "Project Manager",
@@ -14,9 +26,9 @@ const ROLE_LABELS: Record<string, string> = {
 
 const getRoleLabel = (role?: string) => (role ? ROLE_LABELS[role] || role : "Member");
 
-/**
- * Xuất danh sách thành viên ra file PDF
- */
+// ─────────────────────────────────────────────────────────────
+// Main export function
+// ─────────────────────────────────────────────────────────────
 export const exportMembersToPdf = (
   members: TeamMember[],
   boardName: string,
@@ -25,132 +37,187 @@ export const exportMembersToPdf = (
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const PAGE_W = 210;
-  const MARGIN = 15;
+  const PAGE_H = 297;
+  const MARGIN = 18;
   const CONTENT_W = PAGE_W - MARGIN * 2;
 
-  // ── Header gradient background ──
-  doc.setFillColor(102, 126, 234); // #667eea
-  doc.rect(0, 0, PAGE_W, 48, "F");
+  // ── Nền trắng toàn trang ──
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, PAGE_W, PAGE_H, "F");
 
-  // ── Logo / icon text ──
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  // ── Font: Times (= Times New Roman) ──
+  const FONT = "times";
+  const FONT_BOLD = "bold";
+  const FONT_NORMAL = "normal";
+
+  // ─── HEADER ───────────────────────────────────────────────
+  // Dải tiêu đề xanh nhạt
+  doc.setFillColor(41, 98, 162); // xanh đậm chuyên nghiệp
+  doc.rect(0, 0, PAGE_W, 44, "F");
+
+  // Tiêu đề chính
+  doc.setFont(FONT, FONT_BOLD);
+  doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text("DANH SÁCH THÀNH VIÊN DỰ ÁN", MARGIN, 20);
-
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(210, 220, 255);
-  doc.text(`Dự án: ${boardName}${boardId ? ` (ID: ${boardId})` : ""}`, MARGIN, 30);
   doc.text(
-    `Xuất ngày: ${new Date().toLocaleString("vi-VN")}  •  Tổng số: ${members.length} thành viên`,
-    MARGIN,
-    38
+    removeAccents("DANH SACH THANH VIEN DU AN"),
+    PAGE_W / 2,
+    16,
+    { align: "center" }
   );
 
-  // ── Statistics bar ──
-  const pmCount = members.filter(
-    (m) => m.role === "PM" || m.role === "Project Manager"
-  ).length;
-  const tlCount = members.filter(
-    (m) => m.role === "TEAM_LEAD" || m.role === "Team Lead"
-  ).length;
-  const memberCount = members.filter(
-    (m) => m.role === "MEMBER" || m.role === "Member"
-  ).length;
+  // Tên dự án + ngày xuất
+  doc.setFont(FONT, FONT_NORMAL);
+  doc.setFontSize(12);
+  doc.setTextColor(200, 220, 255);
+  const safeBoardName = removeAccents(boardName);
+  doc.text(
+    `Du an: ${safeBoardName}${boardId ? ` (ID: ${boardId})` : ""}`,
+    MARGIN,
+    27
+  );
+  doc.text(
+    `Xuat ngay: ${new Date().toLocaleString("vi-VN")}  |  Tong so: ${members.length} thanh vien`,
+    MARGIN,
+    35
+  );
+
+  // ─── STATS BOXES ──────────────────────────────────────────
+  const pmCount = members.filter((m) => m.role === "PM" || m.role === "Project Manager").length;
+  const tlCount = members.filter((m) => m.role === "TEAM_LEAD" || m.role === "Team Lead").length;
+  const memberCount = members.filter((m) => m.role === "MEMBER" || m.role === "Member").length;
+
+  const statsY = 50;
+  const boxH = 22;
+  const gap = 5;
+  const boxW = (CONTENT_W - gap * 2) / 3;
 
   const stats = [
-    { label: "Project Manager", count: pmCount, color: [24, 144, 255] as [number, number, number] },
-    { label: "Team Lead", count: tlCount, color: [82, 196, 26] as [number, number, number] },
-    { label: "Member", count: memberCount, color: [250, 173, 20] as [number, number, number] },
+    { label: "Project Manager", count: pmCount, fillR: 24, fillG: 144, fillB: 255 },
+    { label: "Team Lead", count: tlCount, fillR: 39, fillG: 174, fillB: 96 },
+    { label: "Member", count: memberCount, fillR: 230, fillG: 126, fillB: 34 },
   ];
 
-  let statX = MARGIN;
-  const statY = 54;
-  const statW = CONTENT_W / stats.length;
-
+  let bx = MARGIN;
   for (const s of stats) {
-    doc.setFillColor(...s.color);
-    doc.roundedRect(statX, statY, statW - 4, 20, 3, 3, "F");
+    // Box viền bo góc
+    doc.setFillColor(s.fillR, s.fillG, s.fillB);
+    doc.roundedRect(bx, statsY, boxW, boxH, 4, 4, "F");
+
+    // Số lớn
+    doc.setFont(FONT, FONT_BOLD);
+    doc.setFontSize(16);
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(String(s.count), statX + (statW - 4) / 2, statY + 9, { align: "center" });
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(s.label, statX + (statW - 4) / 2, statY + 15, { align: "center" });
-    statX += statW;
+    doc.text(String(s.count), bx + boxW / 2, statsY + 11, { align: "center" });
+
+    // Nhãn nhỏ
+    doc.setFont(FONT, FONT_NORMAL);
+    doc.setFontSize(9);
+    doc.text(s.label, bx + boxW / 2, statsY + 18, { align: "center" });
+
+    bx += boxW + gap;
   }
 
-  // ── Member Table ──
-  const tableRows = members.map((m, index) => [
-    index + 1,
-    m.name || "—",
+  // ─── BẢNG THÀNH VIÊN ─────────────────────────────────────
+  const tableRows = members.map((m, i) => [
+    i + 1,
+    removeAccents(m.name || "—"),
     m.email || "—",
     getRoleLabel(m.role),
     m.joinedAt ? new Date(m.joinedAt).toLocaleDateString("vi-VN") : "—",
   ]);
 
   autoTable(doc, {
-    startY: statY + 28,
-    head: [["#", "Họ và tên", "Email", "Vai trò", "Ngày tham gia"]],
+    startY: statsY + boxH + 10,
+    head: [["#", "Ho va ten", "Email", "Vai tro", "Ngay tham gia"]],
     body: tableRows,
     margin: { left: MARGIN, right: MARGIN },
+    styles: {
+      font: FONT,
+      fontSize: 12,
+      textColor: [20, 20, 20],
+      lineColor: [200, 200, 200],
+      lineWidth: 0.3,
+      cellPadding: 4,
+      overflow: "linebreak",
+    },
     headStyles: {
-      fillColor: [102, 126, 234],
+      fillColor: [41, 98, 162],
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 10,
+      fontSize: 12,
       halign: "center",
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: [40, 40, 40],
+      font: FONT,
     },
     alternateRowStyles: {
-      fillColor: [248, 248, 255],
+      fillColor: [240, 245, 255],
+    },
+    bodyStyles: {
+      fillColor: [255, 255, 255],
     },
     columnStyles: {
-      0: { halign: "center", cellWidth: 10 },
-      1: { cellWidth: 45 },
-      2: { cellWidth: 60 },
-      3: { halign: "center", cellWidth: 35 },
-      4: { halign: "center", cellWidth: 30 },
+      0: { halign: "center", cellWidth: 12, fontStyle: "bold" },
+      1: { cellWidth: 42, font: FONT },
+      2: { cellWidth: 60, font: FONT },
+      3: { halign: "center", cellWidth: 38, fontStyle: "bold" },
+      4: { halign: "center", cellWidth: 28, font: FONT },
     },
+    // Vẽ tag màu cho cột Vai trò
     didDrawCell: (data) => {
-      // Tô màu role
       if (data.section === "body" && data.column.index === 3) {
         const role = data.cell.raw as string;
-        let r = 102, g = 126, b = 234;
+        let r = 24, g = 144, b = 255;
         if (role === "Project Manager") { r = 24; g = 144; b = 255; }
-        else if (role === "Team Lead") { r = 82; g = 196; b = 26; }
-        else if (role === "Member") { r = 250; g = 173; b = 20; }
+        else if (role === "Team Lead")  { r = 39;  g = 174; b = 96; }
+        else if (role === "Member")     { r = 230; g = 126; b = 34; }
 
         const { x, y, width, height } = data.cell;
-        doc.setFillColor(r, g, b, );
+        const tagW = width - 8;
+        const tagH = height - 6;
+        const tagX = x + 4;
+        const tagY = y + 3;
+
+        // Vẽ nền tag
+        doc.setFillColor(r, g, b);
+        doc.roundedRect(tagX, tagY, tagW, tagH, 2, 2, "F");
+
+        // Chữ trắng in đậm
+        doc.setFont(FONT, FONT_BOLD);
+        doc.setFontSize(10);
         doc.setTextColor(255, 255, 255);
-        doc.roundedRect(x + 2, y + 2, width - 4, height - 4, 2, 2, "F");
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.text(role, x + width / 2, y + height / 2 + 1, { align: "center" });
+        doc.text(role, tagX + tagW / 2, tagY + tagH / 2 + 1, { align: "center" });
       }
     },
   });
 
-  // ── Footer ──
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
+  // ─── ĐƯỜNG KẺ PHÂN CÁCH & FOOTER ─────────────────────────
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setDrawColor(200, 200, 200);
-    doc.line(MARGIN, 282, PAGE_W - MARGIN, 282);
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.setFont("helvetica", "normal");
-    doc.text("Task Manager — Báo cáo thành viên dự án", MARGIN, 287);
-    doc.text(`Trang ${i} / ${pageCount}`, PAGE_W - MARGIN, 287, { align: "right" });
+
+    // Đường kẻ footer
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.4);
+    doc.line(MARGIN, 284, PAGE_W - MARGIN, 284);
+
+    // Text footer
+    doc.setFont(FONT, FONT_NORMAL);
+    doc.setFontSize(9);
+    doc.setTextColor(130, 130, 130);
+    doc.text(
+      `Task Manager - Bao cao thanh vien du an`,
+      MARGIN,
+      289
+    );
+    doc.text(
+      `Trang ${i} / ${totalPages}`,
+      PAGE_W - MARGIN,
+      289,
+      { align: "right" }
+    );
   }
 
-  // ── Save ──
-  const safeName = boardName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, "_");
-  doc.save(`thanh-vien_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  // ─── LƯU FILE ─────────────────────────────────────────────
+  const safeBoard = removeAccents(boardName).replace(/[^a-zA-Z0-9_\- ]/g, "_");
+  doc.save(`thanh-vien_${safeBoard}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
