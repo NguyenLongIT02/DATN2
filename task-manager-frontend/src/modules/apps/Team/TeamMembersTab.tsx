@@ -275,13 +275,13 @@ const TeamMembersTab: React.FC<TeamMembersTabProps> = ({
             <Tooltip title="Xuất danh sách thành viên ra PDF">
               <Button
                 icon={<FilePdfOutlined />}
-                onClick={() =>
-                  exportMembersToPdf(
+                onClick={async () => {
+                  await exportMembersToPdf(
                     filteredMembers,
                     boardName || `Board #${boardId}`,
                     boardId
-                  )
-                }
+                  );
+                }}
                 disabled={filteredMembers.length === 0}
               >
                 Xuất PDF

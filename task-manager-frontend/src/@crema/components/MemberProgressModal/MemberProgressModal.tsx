@@ -26,8 +26,8 @@ import {
 import { jwtAxios } from "@crema/services/auth/jwt-auth";
 import { getRoleColor, getRoleDisplayName, getRoleIcon } from "@crema/helpers/roleUtils";
 import { TeamMember } from "@crema/services/PermissionService";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { renderHtmlToPdf } from "@crema/helpers/exportMembersPdf";
+
 
 // ─────────────────────────── Types ───────────────────────────
 interface ChecklistItem {
@@ -87,12 +87,7 @@ const isOverdue = (dueDate?: string, isDone?: boolean) => {
   return new Date(dueDate) < new Date();
 };
 
-const removeAccents = (str: string): string =>
-  (str || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D");
+
 
 // ─────────────────────────── CardItem ────────────────────────
 const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
@@ -251,17 +246,137 @@ const CardColumn: React.FC<ColumnProps> = ({ title, icon, color, bgColor, cards 
   </div>
 );
 
-// ─────────────────────────── PDF Export ──────────────────────
-const exportProgressToPdf = (
+// ─────────────────────────── PDF Export (html2canvas) ──────────────────────
+const exportProgressToPdf = async (
   member: TeamMember,
   progress: MemberProgressData,
   boardName: string
 ) => {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const PAGE_W = 210;
-  const PAGE_H = 297;
-  const MARGIN = 15;
-  const FONT = "times";
+  const pct =
+    progress.totalCards > 0
+      ? Math.round((progress.doneCards.length / progress.totalCards) * 100)
+      : 0;
+
+  const roleLabel =
+    member.role === "PM" || member.role === "Project Manager"
+      ? "Project Manager"
+      : member.role === "TEAM_LEAD" || member.role === "Team Lead"
+      ? "Team Lead"
+      : "Member";
+
+  const renderCards = (cards: CardProgress[]) =>
+    cards
+      .map((card) => {
+        const cp = getCheckedProgress(card.checkedList);
+        const dueDateText = card.dueDate
+          ? new Date(card.dueDate).toLocaleDateString("vi-VN")
+          : "";
+        const overdue = isOverdue(card.dueDate, card.isDone);
+        const labelsText = (card.labels || [])
+          .map((l) => `<span style="border:1px solid #999;padding:1px 5px;border-radius:3px;margin-right:4px;font-size:11pt;">${l.name}</span>`)
+          .join("");
+
+        const checklistRows = (card.checkedList || [])
+          .map(
+            (item) =>
+              `<tr>
+                <td style="padding:2px 8px;border:none;font-size:11pt;">
+                  ${item.checked ? "☑" : "☐"}
+                  <span style="${item.checked ? "text-decoration:line-through;color:#888;" : ""}">${item.title}</span>
+                </td>
+              </tr>`
+          )
+          .join("");
+
+        return `
+          <tr>
+            <td style="border:1px solid #bbb;padding:8px 10px;vertical-align:top;">
+              <div style="font-weight:bold;font-size:13pt;margin-bottom:4px;">${card.title}</div>
+              <div style="margin-bottom:4px;">${labelsText}</div>
+              ${dueDateText ? `<div style="font-size:11pt;color:${overdue ? "#cc0000" : "#555"};">⏱ ${dueDateText}${overdue ? " — Quá hạn" : ""}</div>` : ""}
+              ${cp ? `
+                <div style="margin-top:6px;font-size:11pt;">
+                  Checklist: ${cp.done}/${cp.total}
+                  <table style="width:100%;margin-top:4px;">${checklistRows}</table>
+                </div>` : ""}
+            </td>
+          </tr>`;
+      })
+      .join("");
+
+  const sectionHtml = (title: string, cards: CardProgress[]) => {
+    if (cards.length === 0) return "";
+    return `
+      <div style="margin-bottom:20px;">
+        <h3 style="font-size:14pt;font-weight:bold;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">
+          ${title} (${cards.length})
+        </h3>
+        <table style="width:100%;border-collapse:collapse;">
+          ${renderCards(cards)}
+        </table>
+      </div>`;
+  };
+
+  const html = `
+    <div id="pdf-root" style="
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 13pt;
+      color: #000;
+      background: #fff;
+      padding: 40px 50px;
+      width: 740px;
+      box-sizing: border-box;
+    ">
+      <h1 style="text-align:center;font-size:18pt;font-weight:bold;margin:0 0 6px 0;text-transform:uppercase;">
+        Báo cáo tiến độ thành viên
+      </h1>
+      <p style="text-align:center;font-size:13pt;margin:0 0 4px 0;">
+        Dự án: <strong>${boardName}</strong>
+      </p>
+      <p style="text-align:center;font-size:11pt;color:#555;margin:0 0 4px 0;">
+        Thành viên: <strong>${member.name}</strong> &nbsp;|&nbsp; Email: ${member.email || "—"} &nbsp;|&nbsp; Vai trò: ${roleLabel}
+      </p>
+      <p style="text-align:center;font-size:11pt;color:#555;margin:0 0 20px 0;">
+        Ngày xuất: ${new Date().toLocaleString("vi-VN")} &nbsp;|&nbsp; Hoàn thành: ${pct}%
+      </p>
+
+      <!-- Bảng thống kê -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
+            <div style="font-size:18pt;font-weight:bold;">${progress.totalCards}</div>
+            <div style="font-size:11pt;">Tổng công việc</div>
+          </td>
+          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
+            <div style="font-size:18pt;font-weight:bold;">${progress.todoCards.length}</div>
+            <div style="font-size:11pt;">Chưa làm</div>
+          </td>
+          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
+            <div style="font-size:18pt;font-weight:bold;">${progress.inProgressCards.length}</div>
+            <div style="font-size:11pt;">Đang làm</div>
+          </td>
+          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
+            <div style="font-size:18pt;font-weight:bold;">${progress.doneCards.length}</div>
+            <div style="font-size:11pt;">Hoàn thành</div>
+          </td>
+        </tr>
+      </table>
+
+      ${sectionHtml("I. CHƯA LÀM", progress.todoCards)}
+      ${sectionHtml("II. ĐANG LÀM", progress.inProgressCards)}
+      ${sectionHtml("III. HOÀN THÀNH", progress.doneCards)}
+      ${progress.otherCards.length > 0 ? sectionHtml("IV. KHÁC", progress.otherCards) : ""}
+
+      <p style="margin-top:30px;font-size:10pt;color:#666;text-align:center;">— Hết báo cáo —</p>
+    </div>`;
+
+  const safeMember = member.name.replace(/\s+/g, "_");
+  const safeBoard  = boardName.replace(/\s+/g, "_");
+  await renderHtmlToPdf(
+    html,
+    `tien-do_${safeMember}_${safeBoard}_${new Date().toISOString().slice(0, 10)}.pdf`
+  );
+};
 
   // Nền trắng
   doc.setFillColor(255, 255, 255);
@@ -560,9 +675,9 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
             <Tooltip title="Xuất tiến độ ra PDF">
               <Button
                 icon={<FilePdfOutlined />}
-                onClick={() =>
-                  exportProgressToPdf(member!, progress, boardName || `Board #${boardId}`)
-                }
+                onClick={async () => {
+                  await exportProgressToPdf(member!, progress, boardName || `Board #${boardId}`);
+                }}
                 style={{
                   background: "rgba(255,255,255,0.15)",
                   border: "1px solid rgba(255,255,255,0.4)",

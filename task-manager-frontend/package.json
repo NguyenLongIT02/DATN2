@@ -43,6 +43,7 @@
     "filestack-react": "^5.0.0",
     "firebase": "^10.6.0",
     "fusioncharts": "^3.21.1",
+    "html2canvas": "^1.4.1",
     "immutability-helper": "^3.1.1",
     "jodit-react": "^4.0.9",
     "jspdf": "^4.2.1",
