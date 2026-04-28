@@ -15,7 +15,8 @@ import {
   StyledScrumBoardDatePicker,
   StyledScrumBoardScrollbar,
 } from "./index.styled";
-import { postDataApi, putDataApi, useGetDataApi } from "@crema/hooks/APIHooks";
+import { postDataApi, putDataApi, deleteDataApi, useGetDataApi } from "@crema/hooks/APIHooks";
+import { jwtAxios } from "@crema/services/auth/jwt-auth";
 import { useInfoViewActionsContext } from "@crema/context/AppContextProvider/InfoViewContextProvider";
 import {
   showCardCreatedNotification,
@@ -57,6 +58,7 @@ type AddCardFormProps = {
   setData?: (data: BoardObjType) => void;
   refreshTrigger?: number;
   canManageBoard?: boolean;
+  authUser?: any;
 };
 
 const AddCardForm: React.FC<AddCardFormProps> = ({
@@ -275,6 +277,16 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
       });
   };
 
+  const onDeleteComment = (commentId: number) => {
+    jwtAxios.delete(`/scrumboard/comments/${commentId}`)
+      .then(() => {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+      })
+      .catch((error) => {
+        showOperationErrorNotification("xóa bình luận", error.message);
+      });
+  };
+
   const updateLabelList = (values: any) => {
     const safeLabelList = Array.isArray(labelList) ? labelList : [];
     const safeValues = Array.isArray(values) ? values.map(v => Number(v)) : [];
@@ -457,7 +469,9 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
           {selectedCard && (
             <CardComments
               comments={comments}
+              currentUserId={authUser?.id}
               onAddNewComment={onAddNewComment}
+              onDeleteComment={onDeleteComment}
             />
           )}
         </StyledScrumBoardAddCardFormContent>

@@ -44,9 +44,9 @@ const JWTAuthContext = createContext<JWTAuthContextProps>({
   isLoading: true,
 });
 const JWTAuthActionsContext = createContext<JWTAuthActionsProps>({
-  signUpUser: () => {},
-  signInUser: () => {},
-  logout: () => {},
+  signUpUser: () => { },
+  signInUser: () => { },
+  logout: () => { },
 });
 
 export const useJWTAuth = () => useContext(JWTAuthContext);

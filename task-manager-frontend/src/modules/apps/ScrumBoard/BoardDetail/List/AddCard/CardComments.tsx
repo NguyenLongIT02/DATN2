@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useIntl } from "react-intl";
-import { Button, Input } from "antd";
-import { FiSend } from "react-icons/fi";
+import { Button, Input, Popconfirm, Tooltip } from "antd";
+import { FiSend, FiTrash2 } from "react-icons/fi";
 import clsx from "clsx";
 import IntlMessages from "@crema/helpers/IntlMessages";
 import {
@@ -19,12 +19,16 @@ import {
 
 type CardCommentsProps = {
   comments: any[];
+  currentUserId?: number;
   onAddNewComment: (comment: string) => void;
+  onDeleteComment?: (commentId: number) => void;
 };
 
 const CardComments: React.FC<CardCommentsProps> = ({
   comments,
+  currentUserId,
   onAddNewComment,
+  onDeleteComment,
 }) => {
   const [comment, setComment] = useState("");
 
@@ -34,20 +38,15 @@ const CardComments: React.FC<CardCommentsProps> = ({
   };
 
   const { messages } = useIntl();
-
   const { TextArea } = Input;
 
-  const getCommentCell = (
-    item: any,
-    index: number,
-    isPreviousSender: boolean
-  ) => {
+  const getCommentCell = (item: any, index: number, isPreviousSender: boolean) => {
     return (
       <StyledCommentCellWrapper
         className={clsx({
           "scrum-board-card-comment-item-previous": isPreviousSender,
         })}
-        key={index}
+        key={item.id ?? index}
       >
         {item.userAvatar ? (
           <StyledCommentAvatar
@@ -56,13 +55,42 @@ const CardComments: React.FC<CardCommentsProps> = ({
           />
         ) : (
           <StyledCommentAvatar className="scrum-board-card-comment-item-user-avatar">
-            {item.userFullName ? item.userFullName.charAt(0).toUpperCase() : item.username?.charAt(0).toUpperCase()}
+            {item.userFullName
+              ? item.userFullName.charAt(0).toUpperCase()
+              : item.username?.charAt(0).toUpperCase()}
           </StyledCommentAvatar>
         )}
+
         <StyledCommentItemContent className="scrum-board-card-comment-item-user-content">
           <StyledCommentItemDate className="scrum-board-card-comment-item-user-date">
-            {new Date(item.createdAt).toLocaleString()}
+            <span style={{ fontWeight: 600, marginRight: 8 }}>
+              {item.userFullName || item.username || "Người dùng"}
+            </span>
+            {new Date(item.createdAt).toLocaleString("vi-VN")}
+
+            {onDeleteComment && (
+              <Popconfirm
+                title="Xóa bình luận này?"
+                okText="Xóa"
+                cancelText="Hủy"
+                okButtonProps={{ danger: true }}
+                onConfirm={() => onDeleteComment(item.id)}
+              >
+                <Tooltip title="Xóa bình luận">
+                  <FiTrash2
+                    style={{
+                      marginLeft: 10,
+                      cursor: "pointer",
+                      color: "#ff4d4f",
+                      verticalAlign: "middle",
+                      fontSize: 14,
+                    }}
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
           </StyledCommentItemDate>
+
           <StyledCardCommentArea>
             <p>{item.content}</p>
           </StyledCardCommentArea>
@@ -71,7 +99,6 @@ const CardComments: React.FC<CardCommentsProps> = ({
     );
   };
 
-  // Ensure comments is a valid array
   const safeComments = Array.isArray(comments) ? comments : [];
 
   return (
@@ -83,7 +110,6 @@ const CardComments: React.FC<CardCommentsProps> = ({
         {safeComments.length > 0 ? (
           <StyledScrumBoardCardComment>
             {safeComments.map((item, index) => {
-              // Validate comment object
               if (!item || !item.content) {
                 console.warn("Skipping invalid comment:", item);
                 return null;
@@ -91,8 +117,7 @@ const CardComments: React.FC<CardCommentsProps> = ({
               return getCommentCell(
                 item,
                 index,
-                index > 0 &&
-                  safeComments[index - 1]?.userId === item.userId
+                index > 0 && safeComments[index - 1]?.userId === item.userId
               );
             })}
           </StyledScrumBoardCardComment>
@@ -103,7 +128,7 @@ const CardComments: React.FC<CardCommentsProps> = ({
         <TextArea
           autoSize={{ minRows: 1, maxRows: 2 }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               onAddComment();
             }

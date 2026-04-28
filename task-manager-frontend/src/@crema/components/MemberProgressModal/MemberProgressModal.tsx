@@ -87,9 +87,6 @@ const isOverdue = (dueDate?: string, isDone?: boolean) => {
   return new Date(dueDate) < new Date();
 };
 
-
-
-// ─────────────────────────── CardItem ────────────────────────
 const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
   const [expanded, setExpanded] = useState(false);
   const checkProgress = getCheckedProgress(card.checkedList);
@@ -101,16 +98,16 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
         padding: "12px 14px",
         marginBottom: 10,
         borderRadius: 8,
-        border: `1px solid ${overdue ? "#ffccc7" : "#e8e8e8"}`,
-        backgroundColor: overdue ? "#fff2f0" : "#fafafa",
+        border: "1px solid #e8e8e8",
+        backgroundColor: "#fff",
         transition: "box-shadow 0.2s",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)")}
+      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)")}
       onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
     >
       {/* Title row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ fontWeight: 600, fontSize: 14, flex: 1, wordBreak: "break-word" }}>
+        <div style={{ fontWeight: 600, fontSize: 14, flex: 1, wordBreak: "break-word", color: "#222" }}>
           {card.title}
         </div>
         {overdue && (
@@ -119,27 +116,6 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
           </Tooltip>
         )}
       </div>
-
-      {/* Labels */}
-      {card.labels && card.labels.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-          {card.labels.map((label) => (
-            <Tag
-              key={label.id}
-              style={{
-                backgroundColor: label.color || "#d9d9d9",
-                border: "none",
-                color: "#fff",
-                fontSize: 11,
-                padding: "0 6px",
-                borderRadius: 4,
-              }}
-            >
-              {label.name}
-            </Tag>
-          ))}
-        </div>
-      )}
 
       {/* Due date */}
       {card.dueDate && (
@@ -153,7 +129,6 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
       {/* Checklist section */}
       {checkProgress && (
         <div style={{ marginTop: 8 }}>
-          {/* Header row: click để toggle */}
           <div
             style={{
               display: "flex",
@@ -174,7 +149,6 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
             <span style={{ fontSize: 11, color: "#1890ff" }}>{expanded ? "Thu gọn ▲" : "Xem chi tiết ▼"}</span>
           </div>
 
-          {/* Progress bar */}
           <Progress
             percent={checkProgress.percent}
             size="small"
@@ -182,7 +156,6 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
             showInfo={false}
           />
 
-          {/* Checklist items */}
           {expanded && (
             <div style={{ marginTop: 8, paddingLeft: 4 }}>
               {card.checkedList.map((item) => (
@@ -194,7 +167,7 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
                     gap: 8,
                     padding: "3px 0",
                     fontSize: 13,
-                    color: item.checked ? "#52c41a" : "#333",
+                    color: item.checked ? "#888" : "#333",
                     textDecoration: item.checked ? "line-through" : "none",
                   }}
                 >
@@ -210,16 +183,15 @@ const CardItem: React.FC<{ card: CardProgress }> = ({ card }) => {
   );
 };
 
+
 // ─────────────────────────── CardColumn ─────────────────────
 interface ColumnProps {
   title: string;
-  icon: React.ReactNode;
-  color: string;
-  bgColor: string;
+  count: number;
   cards: CardProgress[];
 }
 
-const CardColumn: React.FC<ColumnProps> = ({ title, icon, color, bgColor, cards }) => (
+const CardColumn: React.FC<ColumnProps> = ({ title, count, cards }) => (
   <div>
     <div
       style={{
@@ -228,13 +200,12 @@ const CardColumn: React.FC<ColumnProps> = ({ title, icon, color, bgColor, cards 
         marginBottom: 12,
         padding: "8px 12px",
         borderRadius: 6,
-        backgroundColor: bgColor,
-        border: `1px solid ${color}40`,
+        backgroundColor: "#f5f5f5",
+        border: "1px solid #ddd",
       }}
     >
-      <span style={{ color, marginRight: 8 }}>{icon}</span>
-      <span style={{ fontWeight: 700, color, fontSize: 14 }}>{title}</span>
-      <Badge count={cards.length} style={{ backgroundColor: color, marginLeft: 8 }} />
+      <span style={{ fontWeight: 700, color: "#333", fontSize: 14 }}>{title}</span>
+      <Badge count={count} style={{ backgroundColor: "#888", marginLeft: 8 }} />
     </div>
     {cards.length === 0 ? (
       <div style={{ textAlign: "center", color: "#bbb", padding: "16px 0", fontSize: 13 }}>
@@ -264,56 +235,56 @@ const exportProgressToPdf = async (
       ? "Team Lead"
       : "Member";
 
-  const renderCards = (cards: CardProgress[]) =>
+  const renderCards = (cards: CardProgress[], sectionIndex: number) =>
     cards
-      .map((card) => {
+      .map((card, cardIndex) => {
         const cp = getCheckedProgress(card.checkedList);
         const dueDateText = card.dueDate
           ? new Date(card.dueDate).toLocaleDateString("vi-VN")
           : "";
         const overdue = isOverdue(card.dueDate, card.isDone);
-        const labelsText = (card.labels || [])
-          .map((l) => `<span style="border:1px solid #999;padding:1px 5px;border-radius:3px;margin-right:4px;font-size:11pt;">${l.name}</span>`)
-          .join("");
 
-        const checklistRows = (card.checkedList || [])
+        const checklistItems = (card.checkedList || [])
           .map(
             (item) =>
-              `<tr>
-                <td style="padding:2px 8px;border:none;font-size:11pt;">
-                  ${item.checked ? "☑" : "☐"}
-                  <span style="${item.checked ? "text-decoration:line-through;color:#888;" : ""}">${item.title}</span>
-                </td>
-              </tr>`
+              `<div style="margin:2px 0 2px 16px;font-size:12pt;">
+                ${item.checked
+                  ? `<span style="text-decoration:line-through;color:#555;">&check; ${item.title}</span>`
+                  : `<span>&square; ${item.title}</span>`
+                }
+              </div>`
           )
           .join("");
 
         return `
-          <tr>
-            <td style="border:1px solid #bbb;padding:8px 10px;vertical-align:top;">
-              <div style="font-weight:bold;font-size:13pt;margin-bottom:4px;">${card.title}</div>
-              <div style="margin-bottom:4px;">${labelsText}</div>
-              ${dueDateText ? `<div style="font-size:11pt;color:${overdue ? "#cc0000" : "#555"};">⏱ ${dueDateText}${overdue ? " — Quá hạn" : ""}</div>` : ""}
-              ${cp ? `
-                <div style="margin-top:6px;font-size:11pt;">
-                  Checklist: ${cp.done}/${cp.total}
-                  <table style="width:100%;margin-top:4px;">${checklistRows}</table>
-                </div>` : ""}
-            </td>
-          </tr>`;
+          <div style="margin-bottom:12px;padding-left:16px;">
+            <div style="font-weight:bold;font-size:13pt;">
+              ${sectionIndex}.${cardIndex + 1}. ${card.title}
+            </div>
+            ${dueDateText
+              ? `<div style="font-size:12pt;margin-top:2px;">
+                  <em>Hạn chót:</em> ${dueDateText}
+                  ${overdue ? `<strong style="color:#cc0000;"> — Quá hạn</strong>` : ""}
+                </div>`
+              : ""}
+            ${cp
+              ? `<div style="font-size:12pt;margin-top:4px;">
+                  <em>Checklist (${cp.done}/${cp.total}):</em>
+                  ${checklistItems}
+                </div>`
+              : ""}
+          </div>`;
       })
       .join("");
 
-  const sectionHtml = (title: string, cards: CardProgress[]) => {
+  const sectionHtml = (title: string, cards: CardProgress[], index: number) => {
     if (cards.length === 0) return "";
     return `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:14pt;font-weight:bold;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">
-          ${title} (${cards.length})
-        </h3>
-        <table style="width:100%;border-collapse:collapse;">
-          ${renderCards(cards)}
-        </table>
+      <div style="margin-bottom:18px;">
+        <div style="font-size:13pt;font-weight:bold;text-decoration:underline;margin-bottom:6px;">
+          ${title} (${cards.length} công việc)
+        </div>
+        ${renderCards(cards, index)}
       </div>`;
   };
 
@@ -323,51 +294,61 @@ const exportProgressToPdf = async (
       font-size: 13pt;
       color: #000;
       background: #fff;
-      padding: 40px 50px;
-      width: 740px;
+      padding: 60px 70px;
+      width: 794px;
       box-sizing: border-box;
+      line-height: 1.6;
     ">
-      <h1 style="text-align:center;font-size:18pt;font-weight:bold;margin:0 0 6px 0;text-transform:uppercase;">
-        Báo cáo tiến độ thành viên
+      <!-- Tiêu đề -->
+      <h1 style="text-align:center;font-size:15pt;font-weight:bold;text-transform:uppercase;margin:0 0 4px 0;letter-spacing:0.5px;">
+        Báo cáo tiến độ công việc
       </h1>
-      <p style="text-align:center;font-size:13pt;margin:0 0 4px 0;">
-        Dự án: <strong>${boardName}</strong>
-      </p>
-      <p style="text-align:center;font-size:11pt;color:#555;margin:0 0 4px 0;">
-        Thành viên: <strong>${member.name}</strong> &nbsp;|&nbsp; Email: ${member.email || "—"} &nbsp;|&nbsp; Vai trò: ${roleLabel}
-      </p>
-      <p style="text-align:center;font-size:11pt;color:#555;margin:0 0 20px 0;">
-        Ngày xuất: ${new Date().toLocaleString("vi-VN")} &nbsp;|&nbsp; Hoàn thành: ${pct}%
+      <p style="text-align:center;font-size:13pt;font-style:italic;margin:0 0 20px 0;">
+        Dự án: ${boardName}
       </p>
 
-      <!-- Bảng thống kê -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+
+      <!-- Thông tin -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12pt;">
         <tr>
-          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
-            <div style="font-size:18pt;font-weight:bold;">${progress.totalCards}</div>
-            <div style="font-size:11pt;">Tổng công việc</div>
-          </td>
-          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
-            <div style="font-size:18pt;font-weight:bold;">${progress.todoCards.length}</div>
-            <div style="font-size:11pt;">Chưa làm</div>
-          </td>
-          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
-            <div style="font-size:18pt;font-weight:bold;">${progress.inProgressCards.length}</div>
-            <div style="font-size:11pt;">Đang làm</div>
-          </td>
-          <td style="width:25%;border:1px solid #999;padding:8px;text-align:center;">
-            <div style="font-size:18pt;font-weight:bold;">${progress.doneCards.length}</div>
-            <div style="font-size:11pt;">Hoàn thành</div>
+          <td style="width:50%;padding:2px 0;"><strong>Họ và tên:</strong> ${member.name}</td>
+          <td style="width:50%;padding:2px 0;"><strong>Vai trò:</strong> ${roleLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 0;"><strong>Email:</strong> ${member.email || "—"}</td>
+          <td style="padding:2px 0;"><strong>Ngày xuất:</strong> ${new Date().toLocaleString("vi-VN")}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:2px 0;">
+            <strong>Tổng tiến độ:</strong>
+            ${progress.totalCards} công việc —
+            Chưa làm: ${progress.todoCards.length} |
+            Đang làm: ${progress.inProgressCards.length} |
+            Hoàn thành: ${progress.doneCards.length} (${pct}%)
           </td>
         </tr>
       </table>
 
-      ${sectionHtml("I. CHƯA LÀM", progress.todoCards)}
-      ${sectionHtml("II. ĐANG LÀM", progress.inProgressCards)}
-      ${sectionHtml("III. HOÀN THÀNH", progress.doneCards)}
-      ${progress.otherCards.length > 0 ? sectionHtml("IV. KHÁC", progress.otherCards) : ""}
+      <hr style="border:none;border-top:1px solid #000;margin:12px 0 20px 0;" />
 
-      <p style="margin-top:30px;font-size:10pt;color:#666;text-align:center;">— Hết báo cáo —</p>
+      ${sectionHtml("I. CHƯA LÀM", progress.todoCards, 1)}
+      ${sectionHtml("II. ĐANG LÀM", progress.inProgressCards, 2)}
+      ${sectionHtml("III. HOÀN THÀNH", progress.doneCards, 3)}
+      ${progress.otherCards.length > 0 ? sectionHtml("IV. KHÁC", progress.otherCards, 4) : ""}
+
+      <hr style="border:none;border-top:1px solid #000;margin:20px 0 16px 0;" />
+
+      <!-- Ký tên -->
+      <table style="width:100%;margin-top:24px;font-size:12pt;">
+        <tr>
+          <td style="width:50%;text-align:center;font-style:italic;">Người thực hiện</td>
+          <td style="width:50%;text-align:center;font-style:italic;">Project Manager</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;font-size:10pt;color:#555;">(Ký, ghi rõ họ tên)</td>
+          <td style="text-align:center;font-size:10pt;color:#555;">(Ký, ghi rõ họ tên)</td>
+        </tr>
+      </table>
     </div>`;
 
   const safeMember = member.name.replace(/\s+/g, "_");
@@ -378,187 +359,6 @@ const exportProgressToPdf = async (
   );
 };
 
-  // Nền trắng
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, PAGE_W, PAGE_H, "F");
-
-  // Header xanh
-  doc.setFillColor(41, 98, 162);
-  doc.rect(0, 0, PAGE_W, 46, "F");
-
-  doc.setFont(FONT, "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text("BAO CAO TIEN DO THANH VIEN", PAGE_W / 2, 14, { align: "center" });
-
-  doc.setFont(FONT, "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(200, 220, 255);
-  doc.text(`Du an: ${removeAccents(boardName)}`, MARGIN, 24);
-  doc.text(`Thanh vien: ${removeAccents(member.name)}  |  Email: ${member.email || ""}`, MARGIN, 31);
-  const roleLabel =
-    member.role === "PM" || member.role === "Project Manager"
-      ? "Project Manager"
-      : member.role === "TEAM_LEAD" || member.role === "Team Lead"
-      ? "Team Lead"
-      : "Member";
-  doc.text(
-    `Vai tro: ${roleLabel}  |  Ngay xuat: ${new Date().toLocaleDateString("vi-VN")}`,
-    MARGIN,
-    38
-  );
-
-  // Stats
-  const statsY = 52;
-  const cols4 = (PAGE_W - MARGIN * 2 - 9) / 4;
-  const stats = [
-    { label: "Tong", val: progress.totalCards, r: 41, g: 98, b: 162 },
-    { label: "Chua lam", val: progress.todoCards.length, r: 230, g: 126, b: 34 },
-    { label: "Dang lam", val: progress.inProgressCards.length, r: 41, g: 128, b: 185 },
-    { label: "Hoan thanh", val: progress.doneCards.length, r: 39, g: 174, b: 96 },
-  ];
-  let sx = MARGIN;
-  for (const s of stats) {
-    doc.setFillColor(s.r, s.g, s.b);
-    doc.roundedRect(sx, statsY, cols4, 20, 3, 3, "F");
-    doc.setFont(FONT, "bold");
-    doc.setFontSize(15);
-    doc.setTextColor(255, 255, 255);
-    doc.text(String(s.val), sx + cols4 / 2, statsY + 10, { align: "center" });
-    doc.setFont(FONT, "normal");
-    doc.setFontSize(8);
-    doc.text(s.label, sx + cols4 / 2, statsY + 17, { align: "center" });
-    sx += cols4 + 3;
-  }
-
-  // Phần trăm hoàn thành
-  const pct =
-    progress.totalCards > 0
-      ? Math.round((progress.doneCards.length / progress.totalCards) * 100)
-      : 0;
-  doc.setFont(FONT, "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(39, 174, 96);
-  doc.text(`Hoan thanh: ${pct}%`, PAGE_W - MARGIN, statsY + 10, { align: "right" });
-
-  let currentY = statsY + 28;
-
-  // Hàm vẽ bảng theo nhóm
-  const renderSection = (title: string, cards: CardProgress[], color: [number, number, number]) => {
-    if (cards.length === 0) return;
-
-    // Section title
-    doc.setFont(FONT, "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(...color);
-    doc.text(`>> ${title} (${cards.length})`, MARGIN, currentY);
-    currentY += 4;
-
-    // Dòng kẻ màu
-    doc.setDrawColor(...color);
-    doc.setLineWidth(0.8);
-    doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
-    currentY += 4;
-
-    const rows = cards.map((card) => {
-      const cp = getCheckedProgress(card.checkedList);
-      const checklistText = cp ? `${cp.done}/${cp.total} muc` : "Khong co";
-      const checklistItems = card.checkedList
-        .map((item) => `  ${item.checked ? "[x]" : "[ ]"} ${removeAccents(item.title)}`)
-        .join("\n");
-      const dueDateText = card.dueDate
-        ? new Date(card.dueDate).toLocaleDateString("vi-VN")
-        : "—";
-      const overdueText = isOverdue(card.dueDate, card.isDone) ? " (Qua han)" : "";
-      const labelsText = (card.labels || []).map((l) => l.name).join(", ") || "—";
-
-      return [
-        removeAccents(card.title),
-        labelsText,
-        `${dueDateText}${overdueText}`,
-        `${checklistText}${checklistItems ? "\n" + checklistItems : ""}`,
-      ];
-    });
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [["Cong viec", "Nhan", "Han chot", "Checklist"]],
-      body: rows,
-      margin: { left: MARGIN, right: MARGIN },
-      styles: {
-        font: FONT,
-        fontSize: 10,
-        textColor: [20, 20, 20],
-        lineColor: [210, 210, 210],
-        lineWidth: 0.3,
-        cellPadding: 3,
-        overflow: "linebreak",
-        valign: "top",
-      },
-      headStyles: {
-        fillColor: color,
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 10,
-        halign: "center",
-        font: FONT,
-      },
-      alternateRowStyles: { fillColor: [248, 250, 255] },
-      bodyStyles: { fillColor: [255, 255, 255] },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 28 },
-        3: { cellWidth: 57 },
-      },
-      didParseCell: (data) => {
-        // Tô đỏ cell ngày nếu quá hạn
-        if (data.section === "body" && data.column.index === 2) {
-          const raw = String(data.cell.raw || "");
-          if (raw.includes("Qua han")) {
-            data.cell.styles.textColor = [255, 77, 79];
-            data.cell.styles.fontStyle = "bold";
-          }
-        }
-      },
-    });
-
-    currentY = (doc as any).lastAutoTable.finalY + 8;
-
-    // Sang trang nếu gần hết
-    if (currentY > 260) {
-      doc.addPage();
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, PAGE_W, PAGE_H, "F");
-      currentY = 15;
-    }
-  };
-
-  renderSection("CHUA LAM", progress.todoCards, [230, 126, 34]);
-  renderSection("DANG LAM", progress.inProgressCards, [41, 128, 185]);
-  renderSection("HOAN THANH", progress.doneCards, [39, 174, 96]);
-  if (progress.otherCards.length > 0) {
-    renderSection("KHAC", progress.otherCards, [114, 46, 209]);
-  }
-
-  // Footer
-  const totalPages = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN, 284, PAGE_W - MARGIN, 284);
-    doc.setFont(FONT, "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(130, 130, 130);
-    doc.text("Task Manager - Bao cao tien do thanh vien", MARGIN, 289);
-    doc.text(`Trang ${i} / ${totalPages}`, PAGE_W - MARGIN, 289, { align: "right" });
-  }
-
-  const safeBoard = removeAccents(boardName).replace(/\s+/g, "_");
-  const safeMember = removeAccents(member.name).replace(/\s+/g, "_");
-  doc.save(`tien-do_${safeMember}_${safeBoard}_${new Date().toISOString().slice(0, 10)}.pdf`);
-};
 
 // ─────────────────────────── Main Modal ──────────────────────
 const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
@@ -733,32 +533,24 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
                 <Statistic
                   title="Tổng công việc"
                   value={progress.totalCards}
-                  prefix={<UnorderedListOutlined style={{ color: "#1890ff" }} />}
-                  valueStyle={{ color: "#1890ff" }}
                 />
               </Col>
               <Col xs={6}>
                 <Statistic
                   title="Chưa làm"
                   value={progress.todoCards.length}
-                  prefix={<ClockCircleOutlined style={{ color: "#faad14" }} />}
-                  valueStyle={{ color: "#faad14" }}
                 />
               </Col>
               <Col xs={6}>
                 <Statistic
                   title="Đang làm"
                   value={progress.inProgressCards.length}
-                  prefix={<ExclamationCircleOutlined style={{ color: "#1890ff" }} />}
-                  valueStyle={{ color: "#1890ff" }}
                 />
               </Col>
               <Col xs={6}>
                 <Statistic
                   title="Hoàn thành"
                   value={progress.doneCards.length}
-                  prefix={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
-                  valueStyle={{ color: "#52c41a" }}
                 />
               </Col>
             </Row>
@@ -770,27 +562,21 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
               <Col xs={24} md={8}>
                 <CardColumn
                   title="Chưa làm"
-                  icon={<ClockCircleOutlined />}
-                  color="#fa8c16"
-                  bgColor="#fff7e6"
+                  count={progress.todoCards.length}
                   cards={progress.todoCards}
                 />
               </Col>
               <Col xs={24} md={8}>
                 <CardColumn
                   title="Đang làm"
-                  icon={<ExclamationCircleOutlined />}
-                  color="#1890ff"
-                  bgColor="#e6f7ff"
+                  count={progress.inProgressCards.length}
                   cards={progress.inProgressCards}
                 />
               </Col>
               <Col xs={24} md={8}>
                 <CardColumn
                   title="Hoàn thành"
-                  icon={<CheckCircleOutlined />}
-                  color="#52c41a"
-                  bgColor="#f6ffed"
+                  count={progress.doneCards.length}
                   cards={progress.doneCards}
                 />
               </Col>
@@ -798,9 +584,7 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
                 <Col xs={24}>
                   <CardColumn
                     title="Khác"
-                    icon={<UnorderedListOutlined />}
-                    color="#722ed1"
-                    bgColor="#f9f0ff"
+                    count={progress.otherCards.length}
                     cards={progress.otherCards}
                   />
                 </Col>
