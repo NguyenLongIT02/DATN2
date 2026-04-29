@@ -25,6 +25,7 @@ import {
 
 import CardComments from "./CardComments";
 import CardCheckedList from "./CardCheckedList";
+import CardDependencies from "./CardDependencies";
 import type {
   BoardObjType,
   CardListObjType,
@@ -134,13 +135,13 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
     if (refreshMembers) {
       refreshMembers();
     }
-  }, [board.id, refreshMembers]);
+  }, [board.id]);
 
   useEffect(() => {
     if (refreshMembers && refreshTrigger && refreshTrigger > 0) {
       refreshMembers();
     }
-  }, [refreshTrigger, refreshMembers]);
+  }, [refreshTrigger]);
 
   const onFinish = (values: any) => {
     const formattedValues = {
@@ -447,6 +448,16 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
               </Form.Item>
             </Col>
           </AppRowContainer>
+
+          {/* Dependencies Section */}
+          {selectedCard && (
+            <CardDependencies
+              cardId={selectedCard.id}
+              boardId={board.id}
+              currentDependencyIds={selectedCard.dependencies || []}
+              disabled={!canManageBoard}
+            />
+          )}
 
           <CardCheckedList
             cardId={selectedCard?.id || 0}

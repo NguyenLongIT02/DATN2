@@ -29,7 +29,6 @@ const Reports = () => {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "scrumboard_boards" || e.key === "board_members") {
-        console.log("Reports: Storage changed, refreshing data...");
         if (reCallAPI) {
           reCallAPI();
         }
@@ -40,7 +39,6 @@ const Reports = () => {
 
     // Also listen for custom events from the same tab
     const handleCustomStorageChange = () => {
-      console.log("Reports: Custom storage event, refreshing data...");
       if (reCallAPI) {
         reCallAPI();
       }

@@ -62,12 +62,6 @@ export const useGetDataApi = <T,>(
       jwtAxios
         .get(initialUrl, { params: sanitizeData(params) })
         .then((data: any) => {
-          console.log(
-            initialUrl,
-            data.data,
-            didCancelRef.current,
-            isRequestSuccessful(data.status)
-          );
           resStateRef.current = false;
           if (!didCancelRef.current) {
             if (isRequestSuccessful(data.status)) {
@@ -79,7 +73,6 @@ export const useGetDataApi = <T,>(
               if (callbackFun) callbackFun(actualData);
             } else {
               setLoading(false);
-              console.log("Error", data.data);
               fetchError(data.data.error ? data.data.error : data.data.message);
               setData(initialData ? initialData : (undefined as T));
               if (callbackFun) callbackFun(data.data);
@@ -138,7 +131,6 @@ const handleApiResponse = <T,>(
   resolve: (data: T) => void,
   reject: (data: APIErrorResProps) => void
 ) => {
-  console.log("data: ", url, data.data);
   fetchSuccess();
   if (isRequestSuccessful(data.status)) {
     // Unwrap SuccessResponse<T> format: response.data.data
@@ -158,7 +150,6 @@ const handleAPIError = (
   error: APIErrorProps,
   reject: (data: APIErrorResProps) => void
 ) => {
-  console.log("error: ", url, error);
   fetchSuccess();
   if (error.response?.data?.message) {
     return reject(error.response.data);
@@ -261,9 +252,7 @@ export const uploadDataApi = <T,>(
   infoViewContext: InfoViewActions,
   payload = {},
   isHideLoader = false,
-  onUploadProgress = () => {
-    console.log("");
-  },
+  onUploadProgress = () => {},
   allowDownload = false
 ): Promise<T> => {
   const { fetchStart, fetchSuccess } = infoViewContext;

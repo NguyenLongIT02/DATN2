@@ -23,18 +23,6 @@ const NotificationContent: React.FC<NotificationContentProps> = ({
   const { notifications, loading, reCallAPI } = useNotificationContext();
   const infoViewActionsContext = useInfoViewActionsContext();
 
-  // Debug log
-  console.log("🔔 NotificationContent: notifications =", notifications);
-  console.log("🔔 NotificationContent: loading =", loading);
-  console.log(
-    "🔔 NotificationContent: notifications type =",
-    typeof notifications
-  );
-  console.log(
-    "🔔 NotificationContent: isArray =",
-    Array.isArray(notifications)
-  );
-
   const handleMarkAllAsRead = () => {
     // ✅ FIX: Backend now uses Principal, no need to send userId
     putDataApi("/notifications/read-all", infoViewActionsContext, {})
@@ -58,8 +46,6 @@ const NotificationContent: React.FC<NotificationContentProps> = ({
       okText: "Có",
       cancelText: "Không",
       onOk() {
-        console.log("🔔 Starting clear all notifications...");
-
         // Thử cả hai cách để đảm bảo hoạt động
         const clearNotifications = async () => {
           try {
@@ -71,10 +57,8 @@ const NotificationContent: React.FC<NotificationContentProps> = ({
                 userId: 500,
               }
             );
-            console.log("🔔 Clear all success response:", response);
             message.success("Đã xóa tất cả thông báo thành công");
             if (reCallAPI) {
-              console.log("🔔 Calling reCallAPI to refresh data...");
               reCallAPI();
             }
           } catch (error) {
@@ -94,7 +78,6 @@ const NotificationContent: React.FC<NotificationContentProps> = ({
               );
 
               if (fetchResponse.ok) {
-                console.log("🔔 Direct fetch success");
                 message.success("Đã xóa tất cả thông báo thành công");
                 if (reCallAPI) {
                   reCallAPI();

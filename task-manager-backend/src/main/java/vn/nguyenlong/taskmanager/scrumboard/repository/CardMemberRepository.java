@@ -19,6 +19,8 @@ public interface CardMemberRepository extends JpaRepository<CardMemberEntity, Lo
 
     List<CardMemberEntity> findByUserId(Long userId);
 
+    long countByCardId(Long cardId);
+
     boolean existsByCardIdAndUserId(Long cardId, Long userId);
 
     @Modifying

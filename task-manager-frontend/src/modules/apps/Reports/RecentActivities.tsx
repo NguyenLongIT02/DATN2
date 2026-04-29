@@ -138,7 +138,7 @@ type RecentActivitiesProps = {
 
 const RecentActivities = ({ data }: RecentActivitiesProps) => {
   const handleCollapseChange = (key: any) => {
-    console.log(key);
+    // Collapse change handler
   };
 
   const genExtra = () => (

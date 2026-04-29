@@ -54,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
     private final BoardRoleRepository boardRoleRepository;
     private final BoardMemberRepository boardMemberRepository;
     private final NotificationRepository notificationRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -70,10 +71,13 @@ public class DataInitializer implements CommandLineRunner {
         long boardCount = boardRepository.count();
         long cardCount = cardRepository.count();
         long userCount = userRepository.count();
+        long labelCount = labelRepository.count();
         
-        log.info("Current Database Status: {} boards, {} cards, {} users found.", boardCount, cardCount, userCount);
+        log.info("Current Database Status: {} boards, {} cards, {} labels, {} users found.", 
+                 boardCount, cardCount, labelCount, userCount);
 
-        if (boardCount > 0 || userCount > 2) {
+        // Skip if ANY data exists (except system users: nguyenlong + admin = 2 users)
+        if (boardCount > 0 || labelCount > 0 || userCount > 2) {
             log.info(">>> DATA FOUND: Skipping initialization to preserve user changes.");
             return;
         }
@@ -288,10 +292,10 @@ public class DataInitializer implements CommandLineRunner {
      * Initialize demo data with 40 users and 5 big projects
      */
     @Transactional
-    private void initializeDemoData() {
+    protected void initializeDemoData() {
         log.info("Checking demo data...");
 
-        // 1. Dọn dẹp: Xóa các user clone nếu tồn tại (Tìm theo email có chứa 'clone' hoặc 'datn.com')
+        // 1. Dọn dẹp: Xóa các user clone nếu tồn tại
         userRepository.findAll().stream()
                 .filter(u -> u.getEmail().contains("clone") || u.getEmail().contains("datn.com"))
                 .forEach(u -> {
@@ -302,7 +306,6 @@ public class DataInitializer implements CommandLineRunner {
                 });
 
         log.info("Starting to seed demo data (40 users, 5 projects)...");
-        log.info("Starting professional demo data seeding...");
 
         String[] userNames = {
             "minhnguyen", "hoanganh", "quanghuy", "tuananh", "thanhdat", "ductrung", "phuonglinh", "thuyduong", "khanhlinh", "baongoc",
@@ -334,7 +337,7 @@ public class DataInitializer implements CommandLineRunner {
                     return saved;
                 });
 
-        // 2. Tạo 40 Users Demo (Tối ưu tốc độ mã hóa mật khẩu)
+        // 2. Tạo 40 Users Demo
         String encodedDemoPassword = passwordEncoder.encode("demo123");
         Role userRole = roleRepository.findByName(RoleType.USER);
         
@@ -370,155 +373,170 @@ public class DataInitializer implements CommandLineRunner {
             "Website Bán Xe Ô Tô"
         };
 
-        String[][] tasksDone = {
-            {"Phân tích yêu cầu (menu, giỏ hàng, thanh toán)", "Thiết kế UI/UX", "Thiết kế database (user, product, order)"},
-            {"Xác định chức năng (lọc xe, xem chi tiết)", "Thiết kế giao diện", "Thiết kế DB (car, brand, user)"},
-            {"Phân tích (doctor, lịch khám, bệnh nhân)", "Thiết kế DB (doctor, appointment)", "Thiết kế UI"},
-            {"Xác định nghiệp vụ (dịch vụ, hợp đồng)", "Thiết kế DB (project, customer, service)", "Thiết kế dashboard"},
-            {"Phân tích chức năng (xem xe, đặt lịch lái thử)", "Thiết kế UI/UX", "Thiết kế DB (car, order, user)"}
-        };
-
-        String[][] tasksDoing = {
-            {"Xây dựng API backend (đặt hàng, login)", "Làm frontend (hiển thị menu, giỏ hàng)"},
-            {"API quản lý xe", "Trang danh sách + chi tiết xe"},
-            {"API đặt lịch", "Trang chọn bác sĩ + thời gian"},
-            {"API quản lý dự án", "Theo dõi tiến độ thi công"},
-            {"API quản lý xe", "Trang chi tiết xe"}
-        };
-
-        String[][] tasksToDo = {
-            {"Tích hợp thanh toán", "Test đặt hàng", "Fix bug", "Deploy website"},
-            {"Tính năng tìm kiếm & filter", "Test hiển thị", "Tối ưu performance", "Deploy"},
-            {"Xử lý xung đột lịch", "Test đặt lịch", "Gửi email xác nhận", "Deploy"},
-            {"Quản lý chi phí", "Test nghiệp vụ", "Báo cáo thống kê", "Deploy hệ thống"},
-            {"Tính năng đặt lịch", "Test chức năng", "Fix bug", "Deploy"}
-        };
-
+        // Create all 5 boards with workflow + dependencies
         for (int i = 0; i < projectNames.length; i++) {
             String pName = projectNames[i];
+            boolean isWorkflowBoard = (i <= 2); // First 3 boards have full workflow
             
-            // 2. Tạo Board mới
-            BoardEntity board = new BoardEntity();
-            board.setName(pName);
-            // Set specific dates: April 20 to May 20, 2026
-            board.setStartDate(Instant.parse("2026-04-20T00:00:00Z"));
-            board.setEndDate(Instant.parse("2026-05-20T23:59:59Z"));
-            board.setCreatedBy("system"); board.setUpdatedBy("system");
-            BoardEntity savedBoard = boardRepository.save(board);
-
-            // 3. Tạo các Roles mặc định cho Board
-            BoardRoleEntity ownerRole = new BoardRoleEntity(savedBoard, "Project Manager", "Chủ sở hữu dự án", false, new ArrayList<>());
-            ownerRole.setCreatedBy("system"); ownerRole.setUpdatedBy("system");
-            ownerRole = boardRoleRepository.save(ownerRole);
-
-            BoardRoleEntity teamLeadRole = new BoardRoleEntity(savedBoard, "Team Lead", "Quản lý nhóm", false, new ArrayList<>());
-            teamLeadRole.setCreatedBy("system"); teamLeadRole.setUpdatedBy("system");
-            teamLeadRole = boardRoleRepository.save(teamLeadRole);
-
-            BoardRoleEntity memberRole = new BoardRoleEntity(savedBoard, "Member", "Thành viên", true, new ArrayList<>());
-            memberRole.setCreatedBy("system"); memberRole.setUpdatedBy("system");
-            memberRole = boardRoleRepository.save(memberRole);
-
-            // 4. Gán nguyenlong làm Project Manager
-            addMember(savedBoard, longNguyen, ownerRole);
-
-            // Thông báo cho nguyenlong - người tạo dự án
-            createNotification(longNguyen, longNguyen, savedBoard,
-                "Dự án mới: " + pName,
-                "Bạn đã tạo và đang làm Project Manager của dự án \"" + pName + "\".",
-                "PROJECT_CREATED");
-
-            // 5. Thêm 10 Members - tất cả mặc định là Member (PM tự cấp Team Lead sau)
-            List<User> boardUsers = new ArrayList<>();
-            boardUsers.add(longNguyen);
-            for (int j = 0; j < 10; j++) {
-                User member = users.get((i * 10 + j) % users.size());
-                if (member.getUsername().equals(longNguyen.getUsername())) continue;
-
-                addMember(savedBoard, member, memberRole);
-                boardUsers.add(member);
-
-                // Thông báo cá nhân cho từng thành viên được thêm vào
-                String notifyTitle = "Bạn được mời tham gia: " + pName;
-                String notifyMsg = "Nguyễn Long (Project Manager) đã mời bạn tham gia dự án \"" + pName
-                        + "\" với vai trò Member. Hãy xem bảng và làm các nhiệm vụ được giao nhé!";
-                
-                createNotification(member, longNguyen, savedBoard, notifyTitle, notifyMsg, "BOARD_INVITATION");
-            }
-
-            // 6. Tạo đúng 3 cột: Cần làm, Đang làm, Hoàn thành và nạp Card
-            String[] listNames = {"Cần làm", "Đang làm", "Hoàn thành"};
-            for (int lnIdx = 0; lnIdx < listNames.length; lnIdx++) {
-                ListEntity le = new ListEntity();
-                le.setName(listNames[lnIdx]);
-                le.setBoard(savedBoard);
-                le.setCreatedBy("system"); le.setUpdatedBy("system");
-                ListEntity savedList = listRepository.save(le);
-
-                // Nạp Task khớp với cột: lnIdx 0=To Do, 1=Doing, 2=Done
-                String[] currentTasks = (lnIdx == 0) ? tasksToDo[i] : (lnIdx == 1 ? tasksDoing[i] : tasksDone[i]);
-                for (String taskTitle : currentTasks) {
-                    CardEntity card = new CardEntity();
-                    card.setTitle(taskTitle);
-                    card.setList(savedList);
-                    card.setCreatedBy("system"); card.setUpdatedBy("system");
-                    // 1. Gán Date (Hạn chót) hợp lý theo trạng thái
-                    Instant dueDate;
-                    if (lnIdx == 0) { // To Do: Tương lai (3-7 ngày tới)
-                        dueDate = Instant.now().plus(3 + (int)(Math.random() * 5), ChronoUnit.DAYS);
-                    } else if (lnIdx == 1) { // Doing: Gần hiện tại (-1 đến +2 ngày)
-                        dueDate = Instant.now().plus((int)(Math.random() * 4) - 1, ChronoUnit.DAYS);
-                    } else { // Done: Quá khứ (-5 đến -2 ngày)
-                        dueDate = Instant.now().minus(2 + (int)(Math.random() * 4), ChronoUnit.DAYS);
-                    }
-                    card.setDate(dueDate);
-                    
-                    CardEntity savedCard = cardRepository.save(card);
-
-                    // 2. Tự động tạo Checklist khớp với trạng thái cột
-                    addSampleChecklist(savedCard, lnIdx);
-
-                    // 3. Tự động gán Nhãn (Labels) ngẫu nhiên
-                    List<LabelEntity> allLabels = labelRepository.findAll();
-                    if (!allLabels.isEmpty()) {
-                        int labelCount = (int) (Math.random() * 2) + 1;
-                        for (int k = 0; k < labelCount; k++) {
-                            LabelEntity randomLabel = allLabels.get((int) (Math.random() * allLabels.size()));
-                            CardLabelEntity cl = new CardLabelEntity();
-                            cl.setCard(savedCard);
-                            cl.setLabel(randomLabel);
-                            cardLabelRepository.save(cl);
-                        }
-                    }
-
-                    // 4. Tự động gán Thành viên (Members) ngẫu nhiên (Chỉ lấy trong số các member của board)
-                    int memberCount = (int) (Math.random() * 3) + 1;
-                    for (int k = 0; k < memberCount; k++) {
-                        User randomUser = boardUsers.get((int) (Math.random() * boardUsers.size()));
-                        
-                        // Kiểm tra xem user này đã được gán vào card chưa để tránh duplicate
-                        if (!cardMemberRepository.existsByCardIdAndUserId(savedCard.getId(), randomUser.getId())) {
-                            CardMemberEntity cm = new CardMemberEntity();
-                            cm.setCard(savedCard);
-                            cm.setUser(randomUser);
-                            cardMemberRepository.save(cm);
-                            
-                            // Gửi thông báo phân công nhiệm vụ cho member
-                            if (!randomUser.getUsername().equals(longNguyen.getUsername())) {
-                                createNotification(randomUser, longNguyen, savedBoard, 
-                                    "Phân công công việc: " + savedCard.getTitle(),
-                                    "Bạn được phân công thẻ \"" + savedCard.getTitle() + "\" trong dự án \"" + pName + "\".", 
-                                    "CARD_ASSIGNED");
-                            }
-                        }
-                    }
-                }
-            }
-            log.info("✓ Recreated project with Checklist: {}", pName);
+            createProjectBoard(longNguyen, users, pName, i, isWorkflowBoard);
         }
     }
 
-    private void addSampleChecklist(CardEntity card, int lnIdx) {
+    private void createProjectBoard(User owner, List<User> allUsers, String projectName, int projectIndex, boolean hasWorkflow) {
+        log.info("Creating project board: {} (Workflow: {})", projectName, hasWorkflow);
+        
+        BoardEntity board = new BoardEntity();
+        board.setName(projectName);
+        board.setStartDate(Instant.parse("2026-04-20T00:00:00Z"));
+        board.setEndDate(Instant.parse("2026-05-20T23:59:59Z"));
+        board.setCreatedBy("system");
+        board.setUpdatedBy("system");
+        BoardEntity savedBoard = boardRepository.save(board);
+
+        BoardRoleEntity ownerRole = new BoardRoleEntity(savedBoard, "Project Manager", "Chủ sở hữu dự án", false, new ArrayList<>());
+        ownerRole.setCreatedBy("system");
+        ownerRole.setUpdatedBy("system");
+        ownerRole = boardRoleRepository.save(ownerRole);
+
+        BoardRoleEntity memberRole = new BoardRoleEntity(savedBoard, "Member", "Thành viên", true, new ArrayList<>());
+        memberRole.setCreatedBy("system");
+        memberRole.setUpdatedBy("system");
+        memberRole = boardRoleRepository.save(memberRole);
+
+        addMember(savedBoard, owner, ownerRole);
+        List<User> boardUsers = new ArrayList<>();
+        boardUsers.add(owner);
+        
+        for (int j = 0; j < 10; j++) {
+            User member = allUsers.get((projectIndex * 10 + j) % allUsers.size());
+            if (!member.getUsername().equals(owner.getUsername())) {
+                addMember(savedBoard, member, memberRole);
+                boardUsers.add(member);
+                
+                createNotification(member, owner, savedBoard, 
+                    "Bạn được mời tham gia: " + projectName,
+                    "Nguyễn Long (Project Manager) đã mời bạn tham gia dự án \"" + projectName + "\" với vai trò Member.",
+                    "BOARD_INVITATION");
+            }
+        }
+
+        ListEntity todoList, inProgressList, doneList;
+        
+        if (hasWorkflow) {
+            todoList = createList(savedBoard, "Cần làm", ListStatusType.TODO);
+            inProgressList = createList(savedBoard, "Đang làm", ListStatusType.IN_PROGRESS);
+            doneList = createList(savedBoard, "Hoàn thành", ListStatusType.DONE);
+        } else {
+            todoList = createList(savedBoard, "Cần làm", ListStatusType.NONE);
+            inProgressList = createList(savedBoard, "Đang làm", ListStatusType.NONE);
+            doneList = createList(savedBoard, "Hoàn thành", ListStatusType.NONE);
+        }
+
+        if (hasWorkflow) {
+            createWorkflowCards(savedBoard, todoList, inProgressList, doneList, boardUsers, projectIndex);
+        } else {
+            createStandardCards(savedBoard, todoList, inProgressList, doneList, boardUsers, projectIndex);
+        }
+        
+        log.info("✓ Created project board: {}", projectName);
+    }
+
+    private void createWorkflowCards(BoardEntity board, ListEntity todoList, ListEntity inProgressList, 
+                                     ListEntity doneList, List<User> boardUsers, int projectIndex) {
+        
+        CardEntity doneCard1 = createCardWithDeadline(doneList, "Phân tích yêu cầu hệ thống", 
+            boardUsers, -10, 2);
+        
+        CardEntity doneCard2 = createCardWithDeadline(doneList, "Thiết kế UI/UX", 
+            boardUsers, -8, 2);
+        
+        CardEntity doneCard3 = createCardWithDeadline(doneList, "Thiết kế Database Schema", 
+            boardUsers, -6, 2);
+        
+        CardEntity inProgressCard1 = createCardWithDeadline(inProgressList, "Xây dựng API Backend", 
+            boardUsers, 2, 1);
+        
+        CardEntity inProgressCard2 = createCardWithDeadline(inProgressList, "Phát triển Frontend", 
+            boardUsers, 5, 1);
+        
+        CardEntity inProgressCard3 = createCardWithDeadline(inProgressList, "Tích hợp thanh toán", 
+            boardUsers, 1, 1);
+        
+        CardEntity overdueCard = createCardWithDeadline(todoList, "Fix bug nghiêm trọng [QUÁ HẠN]", 
+            boardUsers, -2, 0);
+        
+        CardEntity dueSoonCard = createCardWithDeadline(todoList, "Viết Unit Tests", 
+            boardUsers, 3, 0);
+        
+        CardEntity normalCard1 = createCardWithDeadline(todoList, "Tối ưu hiệu năng", 
+            boardUsers, 10, 0);
+        
+        CardEntity normalCard2 = createCardWithDeadline(todoList, "Viết tài liệu API", 
+            boardUsers, 12, 0);
+        
+        if (projectIndex <= 1) {
+            createDependency(normalCard1, inProgressCard1);
+            createDependency(dueSoonCard, doneCard3);
+            createDependency(normalCard2, dueSoonCard);
+            createDependency(overdueCard, inProgressCard2);
+        }
+    }
+
+    private void createStandardCards(BoardEntity board, ListEntity todoList, ListEntity inProgressList, 
+                                     ListEntity doneList, List<User> boardUsers, int projectIndex) {
+        
+        createCardWithDeadline(doneList, "Nghiên cứu công nghệ", boardUsers, -7, 2);
+        createCardWithDeadline(doneList, "Thiết kế hệ thống", boardUsers, -5, 2);
+        
+        createCardWithDeadline(inProgressList, "Phát triển tính năng chính", boardUsers, 4, 1);
+        createCardWithDeadline(inProgressList, "Kiểm thử hệ thống", boardUsers, 6, 1);
+        
+        createCardWithDeadline(todoList, "Tối ưu hóa", boardUsers, 8, 0);
+        createCardWithDeadline(todoList, "Triển khai production", boardUsers, 15, 0);
+        createCardWithDeadline(todoList, "Bảo trì và nâng cấp", boardUsers, 20, 0);
+    }
+
+    private CardEntity createCardWithDeadline(ListEntity list, String title, List<User> boardUsers, 
+                                              int daysOffset, int checklistStatus) {
+        CardEntity card = new CardEntity();
+        card.setTitle(title);
+        card.setList(list);
+        card.setDate(Instant.now().plus(daysOffset, ChronoUnit.DAYS));
+        card.setCreatedBy("system");
+        card.setUpdatedBy("system");
+        CardEntity savedCard = cardRepository.save(card);
+        
+        addSampleChecklist(savedCard, checklistStatus);
+        
+        List<LabelEntity> allLabels = labelRepository.findAll();
+        if (!allLabels.isEmpty()) {
+            int labelCount = 1 + (int)(Math.random() * 2);
+            for (int i = 0; i < labelCount; i++) {
+                LabelEntity randomLabel = allLabels.get((int)(Math.random() * allLabels.size()));
+                if (!cardLabelRepository.existsByCardIdAndLabelId(savedCard.getId(), randomLabel.getId())) {
+                    CardLabelEntity cl = new CardLabelEntity();
+                    cl.setCard(savedCard);
+                    cl.setLabel(randomLabel);
+                    cardLabelRepository.save(cl);
+                }
+            }
+        }
+        
+        int memberCount = 1 + (int)(Math.random() * 3);
+        for (int i = 0; i < memberCount; i++) {
+            User randomUser = boardUsers.get((int)(Math.random() * boardUsers.size()));
+            if (!cardMemberRepository.existsByCardIdAndUserId(savedCard.getId(), randomUser.getId())) {
+                CardMemberEntity cm = new CardMemberEntity();
+                cm.setCard(savedCard);
+                cm.setUser(randomUser);
+                cardMemberRepository.save(cm);
+            }
+        }
+        
+        return savedCard;
+    }
+
+    private void addSampleChecklist(CardEntity card, int checklistStatus) {
         String title = card.getTitle().toLowerCase();
         String[] items;
 
@@ -526,17 +544,17 @@ public class DataInitializer implements CommandLineRunner {
             items = new String[]{"Nghiên cứu đối thủ", "Phác thảo sơ đồ quy trình", "Chốt yêu cầu với PM"};
         } else if (title.contains("thiết kế ui") || title.contains("interface") || title.contains("ui")) {
             items = new String[]{"Vẽ Wireframe", "Tạo Mockup màu sắc", "Thiết kế Prototype"};
-        } else if (title.contains("database") || title.contains("db")) {
+        } else if (title.contains("database") || title.contains("db") || title.contains("schema")) {
             items = new String[]{"Thiết kế lược đồ ERD", "Tạo bảng và quan hệ", "Tối ưu hóa Index"};
-        } else if (title.contains("api")) {
+        } else if (title.contains("api") || title.contains("backend")) {
             items = new String[]{"Thiết kế Swagger API", "Lập trình logic xử lý", "Viết Unit Test"};
-        } else if (title.contains("frontend") || title.contains("page")) {
+        } else if (title.contains("frontend") || title.contains("page") || title.contains("phát triển")) {
             items = new String[]{"Dựng khung Layout", "Tích hợp API", "Kiểm tra Responsive"};
         } else if (title.contains("payment") || title.contains("thanh toán")) {
             items = new String[]{"Cài đặt SDK", "Tạo luồng Sandbox", "Xử lý Webhook"};
-        } else if (title.contains("test") || title.contains("testing")) {
+        } else if (title.contains("test") || title.contains("testing") || title.contains("kiểm thử")) {
             items = new String[]{"Viết Test Case", "Chạy Automation Test", "Báo cáo lỗi (Issue)"};
-        } else if (title.contains("deploy") || title.contains("deployment")) {
+        } else if (title.contains("deploy") || title.contains("triển khai")) {
             items = new String[]{"Build dự án", "Cấu hình Docker/Nginx", "Kiểm tra môi trường Production"};
         } else if (title.contains("bug") || title.contains("fix")) {
             items = new String[]{"Tái hiện lỗi", "Phân tích nguyên nhân", "Viết bản vá (Patch)"};
@@ -549,16 +567,16 @@ public class DataInitializer implements CommandLineRunner {
             item.setCard(card);
             item.setTitle(items[i]);
             
-            // Xử lý tích chọn theo cột
-            if (lnIdx == 0) { // To Do
+            if (checklistStatus == 0) {
                 item.setChecked(false);
-            } else if (lnIdx == 2) { // Done
+            } else if (checklistStatus == 2) {
                 item.setChecked(true);
-            } else { // Doing
-                item.setChecked(i == 0); // Tích cái đầu tiên, còn lại để trống
+            } else {
+                item.setChecked(i == 0);
             }
             
-            item.setCreatedBy("system"); item.setUpdatedBy("system");
+            item.setCreatedBy("system");
+            item.setUpdatedBy("system");
             checklistItemRepository.save(item);
         }
     }
@@ -590,5 +608,25 @@ public class DataInitializer implements CommandLineRunner {
         notify.setCreatedBy("system");
         notify.setUpdatedBy("system");
         notificationRepository.save(notify);
+    }
+
+    private ListEntity createList(BoardEntity board, String name, ListStatusType statusType) {
+        ListEntity list = new ListEntity();
+        list.setName(name);
+        list.setBoard(board);
+        list.setStatusType(statusType);
+        list.setCreatedBy("system");
+        list.setUpdatedBy("system");
+        return listRepository.save(list);
+    }
+
+    private void createDependency(CardEntity successor, CardEntity predecessor) {
+        TaskDependencyEntity dependency = new TaskDependencyEntity();
+        dependency.setSuccessor(successor);
+        dependency.setPredecessor(predecessor);
+        dependency.setCreatedBy("system");
+        dependency.setUpdatedBy("system");
+        taskDependencyRepository.save(dependency);
+        log.info("  → Dependency: \"{}\" depends on \"{}\"", successor.getTitle(), predecessor.getTitle());
     }
 }

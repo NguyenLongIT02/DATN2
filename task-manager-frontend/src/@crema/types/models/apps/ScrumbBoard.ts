@@ -49,12 +49,15 @@ export type CardObjType = {
   members: MemberObjType[];
   checkedList: CheckedListObjType[];
   laneId?: number; // Added for react-trello compatibility
+  status?: string; // Workflow status from list.statusType (TODO, IN_PROGRESS, DONE, NONE)
+  dependencies?: number[]; // List of predecessor card IDs (TODO: backend needs to add this)
 };
 
 export type CardListObjType = {
   id: number;
   name: string;
   cards: CardObjType[];
+  statusType?: string; // Workflow type: TODO, IN_PROGRESS, DONE, NONE
 };
 
 export type BoardObjType = {

@@ -109,8 +109,9 @@ import IntlMessages from "@crema/helpers/IntlMessages";
 import { HiCheck } from "react-icons/hi";
 import { CgClose } from "react-icons/cg";
 import { AiOutlineDelete, AiOutlineEdit } from "react-icons/ai";
-import { Input } from "antd";
+import { Input, Tag, Select } from "antd";
 import AppIconButton from "@crema/components/AppIconButton";
+import { getWorkflowStatusColor, getWorkflowStatusDisplay } from "@crema/constants/WorkflowConstants";
 import {
   StyledScrumBoardListHeaderCard,
   StyledScrumBoardListHeaderFlex,
@@ -120,6 +121,8 @@ import {
 import AppConfirmationModal from "@crema/components/AppConfirmationModal";
 import { CardListObjType } from "@crema/types/models/apps/ScrumbBoard";
 
+const { Option } = Select;
+
 type ListHeaderProps = {
   id: string;
   name: string;
@@ -127,18 +130,20 @@ type ListHeaderProps = {
   boardId: number;
   onDelete: (id: string) => void;
   updateTitle: (str: string) => void;
+  onUpdateList?: (id: string, name: string, statusType: string) => void;
 };
 
 const ListHeader: React.FC<ListHeaderProps> = ({
   name,
   id,
+  list,
   onDelete,
   updateTitle,
+  onUpdateList,
 }) => {
   const [isEditListName, setEditListName] = useState(false);
-
   const [editedListName, setEditedListName] = useState("");
-
+  const [editedStatusType, setEditedStatusType] = useState("NONE");
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const onDeleteBoardList = () => {
@@ -148,12 +153,17 @@ const ListHeader: React.FC<ListHeaderProps> = ({
 
   const onEditButtonClick = () => {
     setEditedListName(name);
+    setEditedStatusType(list?.statusType || "NONE");
     setEditListName(!isEditListName);
   };
 
   const onEditListName = () => {
     if (editedListName !== "") {
-      updateTitle(editedListName);
+      if (onUpdateList) {
+        onUpdateList(id, editedListName, editedStatusType);
+      } else {
+        updateTitle(editedListName);
+      }
       setEditListName(false);
     }
   };
@@ -163,7 +173,17 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <StyledScrumBoardListHeaderFlex>
         {!isEditListName ? (
           <>
-            <h5>{name}</h5>
+            <div style={{ flex: 1 }}>
+              <h5>{name}</h5>
+              {list?.statusType && list.statusType !== 'NONE' && (
+                <Tag 
+                  color={getWorkflowStatusColor(list.statusType)}
+                  style={{ fontSize: 11, marginTop: 4 }}
+                >
+                  {getWorkflowStatusDisplay(list.statusType)}
+                </Tag>
+              )}
+            </div>
             <StyledScrumBoardListHeaderFlexAuto>
               <AppIconButton
                 icon={<AiOutlineEdit />}
@@ -178,11 +198,32 @@ const ListHeader: React.FC<ListHeaderProps> = ({
           </>
         ) : (
           <>
-            <StyledScrumListHeaderList>
+            <StyledScrumListHeaderList style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Input
                 value={editedListName}
                 onChange={(event) => setEditedListName(event.target.value)}
+                placeholder="Tên danh sách"
               />
+              <Select
+                value={editedStatusType}
+                onChange={setEditedStatusType}
+                style={{ width: "100%" }}
+                size="small"
+                placeholder="Workflow type"
+              >
+                <Option value="NONE">
+                  <span style={{ color: "#d9d9d9" }}>● </span>None
+                </Option>
+                <Option value="TODO">
+                  <span style={{ color: "#1890ff" }}>● </span>To Do
+                </Option>
+                <Option value="IN_PROGRESS">
+                  <span style={{ color: "#faad14" }}>● </span>In Progress
+                </Option>
+                <Option value="DONE">
+                  <span style={{ color: "#52c41a" }}>● </span>Done
+                </Option>
+              </Select>
             </StyledScrumListHeaderList>
             <StyledScrumBoardListHeaderFlexAuto>
               <AppIconButton icon={<HiCheck />} onClick={onEditListName} />

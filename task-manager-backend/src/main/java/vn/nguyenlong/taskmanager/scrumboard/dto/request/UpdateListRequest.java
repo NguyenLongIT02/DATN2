@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import vn.nguyenlong.taskmanager.scrumboard.entity.ListStatusType;
 import vn.nguyenlong.taskmanager.util.MessageKeys;
 
 @Data
@@ -20,4 +21,6 @@ public class UpdateListRequest {
     @NotBlank(message = MessageKeys.LIST_NAME_REQUIRED)
     @Size(max = 255, message = MessageKeys.LIST_NAME_SIZE)
     private String name;
+
+    private ListStatusType statusType;
 }

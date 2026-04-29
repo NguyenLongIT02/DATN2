@@ -12,6 +12,7 @@ import vn.nguyenlong.taskmanager.scrumboard.dto.response.CardListDto;
 import vn.nguyenlong.taskmanager.scrumboard.entity.BoardEntity;
 import vn.nguyenlong.taskmanager.scrumboard.entity.ListEntity;
 import vn.nguyenlong.taskmanager.scrumboard.entity.CardEntity;
+import vn.nguyenlong.taskmanager.scrumboard.entity.ListStatusType;
 import vn.nguyenlong.taskmanager.scrumboard.mapper.ScrumboardMapper;
 import vn.nguyenlong.taskmanager.scrumboard.repository.*;
 import vn.nguyenlong.taskmanager.notifications.repository.NotificationRepository;
@@ -38,6 +39,7 @@ public class ListService {
     private final ChecklistItemRepository checklistItemRepository;
     private final CardMemberRepository cardMemberRepository;
     private final CardLabelRepository cardLabelRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
     private final ActivityLogRepository activityLogRepository;
     private final NotificationRepository notificationRepository;
     private final EntityManager entityManager;
@@ -67,6 +69,7 @@ public class ListService {
         ListEntity list = new ListEntity();
         list.setName(request.getName());
         list.setBoard(board);
+        list.setStatusType(request.getStatusType() != null ? request.getStatusType() : ListStatusType.NONE);
         
         ListEntity savedList = listRepository.save(list);
         CardListDto dto = scrumboardMapper.toCardListDto(savedList);
@@ -91,6 +94,8 @@ public class ListService {
 
     public CardListDto updateList(UpdateListRequest request) {
         
+        log.info("Updating list {}: name={}, statusType={}", request.getId(), request.getName(), request.getStatusType());
+        
         ListEntity list = listRepository.findById(request.getId())
                 .orElseThrow(() -> new NotFoundException("List not found with id: " + request.getId()));
 
@@ -100,8 +105,16 @@ public class ListService {
         }
 
         list.setName(request.getName());
+        if (request.getStatusType() != null) {
+            log.info("Setting statusType from {} to {}", list.getStatusType(), request.getStatusType());
+            list.setStatusType(request.getStatusType());
+        } else {
+            log.warn("StatusType is null in request, keeping current value: {}", list.getStatusType());
+        }
         ListEntity updatedList = listRepository.save(list);
         CardListDto dto = scrumboardMapper.toCardListDto(updatedList);
+        
+        log.info("List updated successfully: id={}, name={}, statusType={}", dto.getId(), dto.getName(), dto.getStatusType());
         
         // Log & WS
         try {
@@ -139,6 +152,7 @@ public class ListService {
                 commentRepository.deleteByCardId(cardId);
                 attachmentRepository.deleteByCardId(cardId);
                 checklistItemRepository.deleteByCardId(cardId);
+                taskDependencyRepository.deleteByCardId(cardId);
                 cardMemberRepository.deleteByCardId(cardId);
                 cardLabelRepository.deleteByCardId(cardId);
             }

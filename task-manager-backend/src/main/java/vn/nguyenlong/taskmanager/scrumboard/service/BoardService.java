@@ -11,14 +11,13 @@ import vn.nguyenlong.taskmanager.core.util.EntityBase;
 import vn.nguyenlong.taskmanager.scrumboard.dto.request.CreateBoardRequest;
 import vn.nguyenlong.taskmanager.scrumboard.dto.request.UpdateBoardRequest;
 import vn.nguyenlong.taskmanager.scrumboard.dto.response.BoardDto;
-import vn.nguyenlong.taskmanager.scrumboard.entity.BoardEntity;
-import vn.nguyenlong.taskmanager.scrumboard.entity.ListEntity;
+import vn.nguyenlong.taskmanager.scrumboard.entity.*;
 import vn.nguyenlong.taskmanager.scrumboard.mapper.ScrumboardMapper;
 import vn.nguyenlong.taskmanager.scrumboard.repository.BoardMemberRepository;
 import vn.nguyenlong.taskmanager.scrumboard.repository.BoardRepository;
 import vn.nguyenlong.taskmanager.scrumboard.repository.BoardRoleRepository;
 import vn.nguyenlong.taskmanager.scrumboard.repository.ListRepository;
-import vn.nguyenlong.taskmanager.scrumboard.entity.BoardRoleEntity;
+import vn.nguyenlong.taskmanager.scrumboard.repository.TaskDependencyRepository;
 import vn.nguyenlong.taskmanager.scrumboard.security.AuthzService;
 import vn.nguyenlong.taskmanager.scrumboard.service.MemberService;
 
@@ -49,6 +48,7 @@ public class BoardService {
     private final vn.nguyenlong.taskmanager.scrumboard.repository.CardLabelRepository cardLabelRepository;
     private final vn.nguyenlong.taskmanager.scrumboard.repository.ChecklistItemRepository checklistItemRepository;
     private final vn.nguyenlong.taskmanager.scrumboard.repository.CardRepository cardRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -130,6 +130,34 @@ public class BoardService {
                         .filter(l -> l.getId().equals(list.getId()))
                         .findFirst()
                         .ifPresent(l -> list.setCards(l.getCards()));
+            }
+            
+            // ✅ FIX: Batch fetch dependencies for all cards
+            List<CardEntity> allCards = board.getLists().stream()
+                    .flatMap(list -> list.getCards().stream())
+                    .toList();
+            
+            if (!allCards.isEmpty()) {
+                List<Long> cardIds = allCards.stream()
+                        .map(CardEntity::getId)
+                        .toList();
+                
+                // Batch fetch all dependencies
+                List<TaskDependencyEntity> allDependencies =
+                        taskDependencyRepository.findBySuccessorIdIn(cardIds);
+                
+                // Group by successor ID
+                java.util.Map<Long, List<TaskDependencyEntity>> dependenciesMap = 
+                        allDependencies.stream()
+                                .collect(java.util.stream.Collectors.groupingBy(
+                                        d -> d.getSuccessor().getId()
+                                ));
+                
+                // Set dependencies for each card
+                allCards.forEach(card -> {
+                    List<TaskDependencyEntity> deps = dependenciesMap.getOrDefault(card.getId(), List.of());
+                    card.setDependencies(deps);
+                });
             }
         }
         
@@ -233,6 +261,7 @@ public class BoardService {
             cardMemberRepository.deleteByBoardId(id);
             cardLabelRepository.deleteByBoardId(id);
             notificationRepository.deleteByBoardId(id);
+            taskDependencyRepository.deleteByBoardId(id);
             
             // 2. Xóa Thẻ bài (Card)
             cardRepository.deleteByBoardId(id);

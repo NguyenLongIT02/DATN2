@@ -76,8 +76,6 @@ const Notifications = () => {
 
   // Handle notification created via WebSocket
   const handleNotificationCreated = useCallback((message: NotificationWebSocketMessage) => {
-    console.log('Notifications: Received NOTIFICATION_CREATED', message);
-    
     if (message.data) {
       // Add new notification to the beginning of the list
       setData((prevData) => {
@@ -113,8 +111,6 @@ const Notifications = () => {
 
   // Handle notification updated via WebSocket
   const handleNotificationUpdated = useCallback((message: NotificationWebSocketMessage) => {
-    console.log('Notifications: Received NOTIFICATION_UPDATED', message);
-    
     if (message.data) {
       // Update existing notification in the list
       setData((prevData) => {

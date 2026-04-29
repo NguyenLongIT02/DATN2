@@ -174,7 +174,81 @@ public class CardController {
         activityLogService.logActivity(boardId, null, userId, "DELETE_CARD", "đã xóa thẻ ID: " + id);
 
         return ResponseUtil.ok(HttpStatus.OK.value(),
-                translateMessage.translate(MessageKeys.CARD_DELETE_SUCCESS));
+                translateMessage.translate(MessageKeys.CARD_DELETE_SUCCESS), null);
+    }
+
+    // ==================== DEPENDENCY MANAGEMENT ====================
+
+    @PostMapping("/cards/{cardId}/dependencies")
+    @Operation(summary = "Add dependencies to a card", description = "Add predecessor cards that this card depends on")
+    public SuccessResponse<Void> addDependencies(
+            @PathVariable Long cardId,
+            @Valid @RequestBody vn.nguyenlong.taskmanager.scrumboard.dto.request.AddDependenciesRequest request,
+            Principal principal) {
+        Long userId = extractUserIdFromPrincipal(principal);
+
+        // Get card to check board access
+        CardEntity card = cardRepository.findByIdWithListAndBoard(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found"));
+        Long boardId = card.getList().getBoard().getId();
+
+        // Check permission: MEMBER can manage dependencies
+        if (!authzService.canEditCard(userId, boardId)) {
+            throw new AccessDeniedException("You don't have permission to manage dependencies");
+        }
+
+        cardService.addDependencies(cardId, request.getPredecessorIds());
+
+        return ResponseUtil.ok(HttpStatus.OK.value(),
+                "Dependencies added successfully", null);
+    }
+
+    @DeleteMapping("/cards/{cardId}/dependencies/{predecessorId}")
+    @Operation(summary = "Remove a dependency", description = "Remove a predecessor card dependency")
+    public SuccessResponse<Void> removeDependency(
+            @PathVariable Long cardId,
+            @PathVariable Long predecessorId,
+            Principal principal) {
+        Long userId = extractUserIdFromPrincipal(principal);
+
+        // Get card to check board access
+        CardEntity card = cardRepository.findByIdWithListAndBoard(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found"));
+        Long boardId = card.getList().getBoard().getId();
+
+        // Check permission
+        if (!authzService.canEditCard(userId, boardId)) {
+            throw new AccessDeniedException("You don't have permission to manage dependencies");
+        }
+
+        cardService.removeDependency(cardId, predecessorId);
+
+        return ResponseUtil.ok(HttpStatus.OK.value(),
+                "Dependency removed successfully", null);
+    }
+
+    @GetMapping("/cards/{cardId}/dependencies")
+    @Operation(summary = "Get card dependencies", description = "Get all predecessor cards that this card depends on")
+    public SuccessResponse<List<Long>> getDependencies(
+            @PathVariable Long cardId,
+            Principal principal) {
+        Long userId = extractUserIdFromPrincipal(principal);
+
+        // Get card to check board access
+        CardEntity card = cardRepository.findByIdWithListAndBoard(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found"));
+        Long boardId = card.getList().getBoard().getId();
+
+        // Check permission: any board member can view
+        if (!authzService.isBoardMember(userId, boardId)) {
+            throw new AccessDeniedException("You don't have permission to view this card");
+        }
+
+        List<Long> dependencies = cardService.getDependencies(cardId);
+
+        return ResponseUtil.ok(HttpStatus.OK.value(),
+                "Dependencies retrieved successfully",
+                dependencies);
     }
     
     private Long extractUserIdFromPrincipal(Principal principal) {

@@ -42,7 +42,7 @@ public class AttachmentController {
     @Operation(summary = "Delete an attachment")
     public SuccessResponse<String> deleteAttachment(@PathVariable Long attachmentId) {
         attachmentService.deleteAttachment(attachmentId);
-        return ResponseUtil.ok(HttpStatus.OK.value(), "Attachment deleted successfully");
+        return ResponseUtil.ok(HttpStatus.OK.value(), "Attachment deleted successfully", "Deleted");
     }
 
     @GetMapping("/download/{fileName:.+}")

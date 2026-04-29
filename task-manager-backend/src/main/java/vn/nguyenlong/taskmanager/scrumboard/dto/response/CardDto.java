@@ -23,4 +23,5 @@ public class CardDto {
     private List<MemberDto> members;
     private List<ChecklistDto> checkedList;
     private Long laneId;
+    private List<Long> dependencies; // IDs of predecessor cards (tasks this card depends on)
 }

@@ -97,4 +97,10 @@ public final class MessageKeys {
     public static final String CARD_TITLE_SIZE = "card.title.size";
     public static final String LANE_ID_REQUIRED = "lane.id.required";
     public static final String CARD_CHECKLIST_INCOMPLETE = "card.checklist.incomplete";
+
+    public static final String CARD_WORKFLOW_INVALID = "card.workflow.invalid";
+    public static final String CARD_DEPENDENCY_INCOMPLETE = "card.dependency.incomplete";
+    public static final String CARD_MEMBER_REQUIRED = "card.member.required";
+    public static final String CARD_DOD_NOT_IN_PROGRESS = "card.dod.not.in.progress";
+    public static final String CARD_WORKFLOW_BACKWARD_NOT_ALLOWED = "card.workflow.backward.not.allowed";
 }

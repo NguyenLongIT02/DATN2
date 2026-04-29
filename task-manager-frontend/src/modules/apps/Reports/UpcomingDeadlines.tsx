@@ -170,7 +170,7 @@ const getPriorityColor = (priority: string) => {
 
 const UpcomingDeadlines = ({ data }: UpcomingDeadlinesProps) => {
   const handleCollapseChange = (key: any) => {
-    console.log(key);
+    // Collapse change handler
   };
 
   const genExtra = () => (

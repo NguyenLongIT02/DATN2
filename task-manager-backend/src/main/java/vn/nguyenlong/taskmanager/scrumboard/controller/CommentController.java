@@ -60,7 +60,7 @@ public class CommentController {
             Principal principal) {
         Long userId = extractUserIdFromPrincipal(principal);
         commentService.deleteComment(id, userId);
-        return ResponseUtil.ok(HttpStatus.OK.value(), "Comment deleted successfully");
+        return ResponseUtil.ok(HttpStatus.OK.value(), "Comment deleted successfully", "Deleted");
     }
 
     private Long extractUserIdFromPrincipal(Principal principal) {

@@ -54,10 +54,8 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
   // Connect when boardId changes and enabled
   useEffect(() => {
     if (enabled && boardId) {
-      console.log('useWebSocket: Connecting to board:', boardId);
       webSocketService.connect(boardId, handlersRef.current);
     } else if (!enabled || !boardId) {
-      console.log('useWebSocket: Disconnecting - enabled:', enabled, 'boardId:', boardId);
       webSocketService.disconnect();
     }
   }, [boardId, enabled]);
@@ -65,7 +63,6 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
   // Cleanup on unmount only
   useEffect(() => {
     return () => {
-      console.log('useWebSocket: Component unmounting, disconnecting...');
       webSocketService.disconnect();
     };
   }, []);

@@ -28,9 +28,6 @@ public class CardEntity extends EntityBase {
     @Column(name = "ngay_het_han")
     private Instant date;
 
-    @Column(name = "trang_thai")
-    private String status;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cot_id")
     private ListEntity list;
@@ -49,5 +46,9 @@ public class CardEntity extends EntityBase {
 
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ChecklistItemEntity> checklistItems = new ArrayList<>();
+
+    // Dependencies: tasks that this card depends on (predecessors)
+    @OneToMany(mappedBy = "successor", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<TaskDependencyEntity> dependencies = new ArrayList<>();
 
 }

@@ -4,8 +4,6 @@ import NotificationService from './NotificationService';
  * Create sample notifications for testing
  */
 export const createSampleNotifications = () => {
-  console.log('Creating sample notifications...');
-  
   // Sample board creation notification
   NotificationService.notifyBoardCreated(
     'Project Alpha',
@@ -61,8 +59,6 @@ export const createSampleNotifications = () => {
     '/assets/images/avatar/A1.jpg',
     [500, 501, 502, 503] // Notify all members
   );
-
-  console.log('Sample notifications created successfully!');
 };
 
 // Auto-create sample notifications when this module is imported

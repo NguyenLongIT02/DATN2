@@ -21,6 +21,10 @@ public class ListEntity extends EntityBase {
     @Column(name = "ten", nullable = false)
     private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_type")
+    private ListStatusType statusType;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bang_id", nullable = false)
     private BoardEntity board;

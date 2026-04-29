@@ -47,10 +47,8 @@ export const useNotificationWebSocket = (
   // Connect when userId changes and enabled
   useEffect(() => {
     if (enabled && userId) {
-      console.log('useNotificationWebSocket: Connecting for user:', userId);
       notificationWebSocketService.connect(userId, handlersRef.current);
     } else if (!enabled || !userId) {
-      console.log('useNotificationWebSocket: Disconnecting - enabled:', enabled, 'userId:', userId);
       notificationWebSocketService.disconnect();
     }
   }, [userId, enabled]);
@@ -58,7 +56,6 @@ export const useNotificationWebSocket = (
   // Cleanup on unmount only
   useEffect(() => {
     return () => {
-      console.log('useNotificationWebSocket: Component unmounting, disconnecting...');
       notificationWebSocketService.disconnect();
     };
   }, []);

@@ -14,5 +14,6 @@ import java.util.List;
 public class CardListDto {
     private Long id;
     private String name;
+    private String statusType; // Changed from ListStatusType to String for JSON serialization
     private List<CardDto> cards;
 }

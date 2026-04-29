@@ -16,6 +16,11 @@ import NewListButton from "./NewListButton";
 import ConnectionStatusIndicator from "@crema/components/ConnectionStatusIndicator";
 import BoardAiAssistantPanel from "./BoardAiAssistantPanel";
 import { Button } from "antd";
+import {
+  isTransitionForbidden,
+  requiresDependencyCheck,
+  isCardBlocked,
+} from "@crema/constants/WorkflowConstants";
 
 import {
   StyledScrumBoardStatusBox,
@@ -70,7 +75,7 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
             ...currentBoard,
             list: currentBoard.list.map((lane: any) => {
               if (lane.id.toString() === message.data.laneId.toString()) {
-                const cardWithLaneId = { ...message.data, laneId: lane.id };
+                const cardWithLaneId = { ...message.data, laneId: lane.id, listStatusType: lane.statusType };
                 const exists = lane.cards.some((c: any) => c.id.toString() === message.data.id?.toString());
                 if (exists) {
                   return { ...lane, cards: lane.cards.map((c: any) => c.id.toString() === message.data.id?.toString() ? cardWithLaneId : c) };
@@ -129,7 +134,14 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
             ...lane,
             cards: lane.cards.map((c: any) =>
               c.id.toString() === cardIdStr
-                ? { ...c, ...message.data }
+                ? { 
+                    ...c, 
+                    ...message.data,
+                    // Preserve dependencies if not included in message
+                    dependencies: message.data.dependencies !== undefined 
+                      ? message.data.dependencies 
+                      : c.dependencies
+                  }
                 : c
             ),
           })),
@@ -138,7 +150,14 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
         // Sync with open Drawer
         setSelectedCard((prev) => {
           if (prev && prev.id.toString() === cardIdStr) {
-            return { ...prev, ...message.data };
+            return { 
+              ...prev, 
+              ...message.data,
+              // Preserve dependencies if not included in message
+              dependencies: message.data.dependencies !== undefined 
+                ? message.data.dependencies 
+                : prev.dependencies
+            };
           }
           return prev;
         });
@@ -163,7 +182,7 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
                   ),
                 };
               } else if (lane.id.toString() === message.toListId?.toString()) {
-                const cardWithLaneId = { ...message.data, laneId: lane.id };
+                const cardWithLaneId = { ...message.data, laneId: lane.id, listStatusType: lane.statusType };
                 const exists = lane.cards.some((c: any) => c.id.toString() === cardIdStr);
                 if (exists) {
                   return { ...lane, cards: lane.cards.map((c: any) => c.id.toString() === cardIdStr ? cardWithLaneId : c) };
@@ -300,7 +319,8 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
                       return null;
                     }
                     seenCardIds.add(cardIdStr);
-                    return { ...card, laneId: lane.id };
+                    // Add listStatusType to card so BoardCard can check if it's in DONE list
+                    return { ...card, laneId: lane.id, listStatusType: lane.statusType };
                   })
                   .filter(
                     (card): card is CardObjType & { laneId: number } =>
@@ -368,14 +388,23 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
     setAddCardOpen(true);
   };
 
-  const onAddList = (name: string) => {
+  // Use ref instead of state for immediate access
+  const pendingListStatusTypeRef = React.useRef<string>("NONE");
+
+  const onAddList = (name: string, statusType?: string) => {
     if (!canManageBoard) {
       infoViewActionsContext.fetchError("Bạn không có quyền thêm danh sách!");
       return;
     }
+    
+    const finalStatusType = (statusType && statusType !== "NONE") 
+      ? statusType 
+      : (pendingListStatusTypeRef.current || "NONE");
+    
     postDataApi("/scrumboard/add/list", infoViewActionsContext, {
       name,
       boardId: boardDetail?.id,
+      statusType: finalStatusType,
     })
       .then((data) => {
         const newList = data as CardListObjType;
@@ -385,6 +414,7 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
         };
         if (setData) setData(updatedBoard);
         showListCreatedNotification(name);
+        pendingListStatusTypeRef.current = "NONE";
       })
       .catch((error) => showOperationErrorNotification("thêm danh sách", error?.message || "Đã có lỗi xảy ra"));
   };
@@ -428,6 +458,31 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
     const targetLane = currentLanes.find((l) => l.id === numericTargetId);
     if (!sourceLane || !targetLane) return;
 
+    // ✅ WORKFLOW VALIDATION
+    const sourceStatus = sourceLane.statusType || "NONE";
+    const targetStatus = targetLane.statusType || "NONE";
+
+    // Check forbidden transitions (e.g., TODO -> DONE)
+    if (isTransitionForbidden(sourceStatus, targetStatus)) {
+      infoViewActionsContext.fetchError(
+        `Không thể chuyển trực tiếp từ ${sourceStatus} sang ${targetStatus}. Vui lòng chuyển qua IN_PROGRESS trước.`
+      );
+      return;
+    }
+
+    // Check dependencies if moving to IN_PROGRESS
+    if (requiresDependencyCheck(targetStatus)) {
+      const sourceCards = Array.isArray(sourceLane.cards) ? sourceLane.cards : [];
+      const movingCard = sourceCards.find((c) => c.id === numericCardId);
+      
+      if (movingCard && isCardBlocked(movingCard, currentLanes.flatMap(l => l.cards))) {
+        infoViewActionsContext.fetchError(
+          "Thẻ này đang bị chặn bởi các task phụ thuộc chưa hoàn thành. Vui lòng hoàn thành các task phụ thuộc trước."
+        );
+        return;
+      }
+    }
+
     const sourceCards = Array.isArray(sourceLane.cards) ? [...sourceLane.cards] : [];
     const movingCardIdx = sourceCards.findIndex((c) => c.id === numericCardId);
     if (movingCardIdx < 0) return;
@@ -437,6 +492,10 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
     const safePos = Math.max(0, Math.min(position, targetCards.length));
     targetCards.splice(safePos, 0, { ...movingCard, laneId: numericTargetId });
 
+    // ✅ FIX: Save original state for rollback
+    const originalBoard = { ...boardDetail };
+
+    // Update UI optimistically (only if not connected to WebSocket)
     if (!isConnected) {
       setData((currentBoard: any) => ({
         ...currentBoard,
@@ -464,7 +523,11 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
       .catch((error) => {
         const errorMessage = error?.message || (typeof error === 'string' ? error : "Đã có lỗi xảy ra");
         showOperationErrorNotification("di chuyển thẻ", errorMessage);
-        if (!isConnected) setRefreshTrigger((prev) => prev + 1);
+        
+        // ✅ FIX: Rollback UI immediately on error
+        if (!isConnected) {
+          setData(originalBoard);
+        }
       });
   };
 
@@ -482,6 +545,32 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
         };
         if (setData) setData(updatedBoard);
         showListUpdatedNotification(newListName || "List");
+      })
+      .catch((error) => showOperationErrorNotification("cập nhật danh sách", error?.message || "Đã có lỗi xảy ra"));
+  };
+
+  const onUpdateListWithStatus = (laneId: string, name: string, statusType: string) => {
+    const numericLaneId = Number(laneId);
+    
+    putDataApi<CardListObjType>("/scrumboard/edit/list", infoViewActionsContext, {
+      id: numericLaneId,
+      name: name,
+      statusType: statusType,
+    })
+      .then((data) => {
+        const updatedList = data as CardListObjType;
+        const updatedBoard = {
+          ...boardDetail,
+          list: boardDetail.list.map((l) => {
+            if (l.id === numericLaneId) {
+              return updatedList;
+            }
+            return l;
+          }),
+        };
+        
+        if (setData) setData(updatedBoard);
+        showListUpdatedNotification(name || "List");
       })
       .catch((error) => showOperationErrorNotification("cập nhật danh sách", error?.message || "Đã có lỗi xảy ra"));
   };
@@ -528,7 +617,10 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
           onClickAddCard(laneId);
         }}
         onCardClick={(cardId: number, _: any) => onEditCardDetail(cardId)}
-        onLaneAdd={(name: string) => onAddList(name)}
+        onLaneAdd={(name: string, data?: any) => {
+          const statusType = pendingListStatusTypeRef.current;
+          onAddList(name, statusType);
+        }}
         onLaneUpdate={(laneId: number, data: CardObjType) => {
           if (!canManageBoard) return;
           const lane = boardData.lanes.find((item) => item.id === laneId);
@@ -543,12 +635,29 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
         }}
         components={{
           Card: BoardCard,
-          LaneHeader: ListHeader,
+          LaneHeader: (props: any) => {
+            const fullList = boardData?.lanes?.find((l: any) => l.id === props.id);
+            return (
+              <ListHeader {...props} list={fullList} onUpdateList={onUpdateListWithStatus} />
+            );
+          },
           AddCardLink: (props: any) =>
             canManageBoard ? (
               <AddCardButton {...props} onClickAddCard={onClickAddCard} />
             ) : null,
-          NewLaneForm: canManageBoard ? AddNewList : undefined,
+          NewLaneForm: canManageBoard ? (props: any) => (
+            <AddNewList 
+              {...props} 
+              onAdd={(name: string, statusType?: string) => {
+                if (statusType) {
+                  pendingListStatusTypeRef.current = statusType;
+                }
+                if (props.onAdd) {
+                  props.onAdd(name);
+                }
+              }}
+            />
+          ) : undefined,
           NewLaneSection: canManageBoard ? NewListButton : () => null,
         }}
       />

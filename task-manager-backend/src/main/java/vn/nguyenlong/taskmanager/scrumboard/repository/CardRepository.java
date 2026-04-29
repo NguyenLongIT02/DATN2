@@ -33,6 +33,12 @@ public interface CardRepository extends JpaRepository<CardEntity, Long> {
            "WHERE c.id = :id")
     Optional<CardEntity> findByIdWithListAndBoard(@Param("id") Long id);
 
+    @Query("SELECT c FROM CardEntity c " +
+           "LEFT JOIN FETCH c.dependencies d " +
+           "LEFT JOIN FETCH d.predecessor " +
+           "WHERE c.id = :id")
+    Optional<CardEntity> findByIdWithDependencies(@Param("id") Long id);
+
     List<CardEntity> findByListIdOrderByCreatedAt(Long listId);
 
     @Query("SELECT c FROM CardEntity c LEFT JOIN FETCH c.members cm LEFT JOIN FETCH cm.user " +

@@ -35,7 +35,6 @@ const loadNotifications = (): Notification[] => {
 const saveNotifications = (notifications: Notification[]) => {
   try {
     localStorage.setItem('notifications', JSON.stringify(notifications));
-    console.log('NotificationService: Saved notifications to localStorage');
     
     // Trigger custom event to notify components
     window.dispatchEvent(new CustomEvent('notificationsChanged'));
@@ -48,8 +47,6 @@ let notifications: Notification[] = loadNotifications();
 
 // Create sample notifications if none exist
 if (notifications.length === 0) {
-  console.log('🔔 Creating sample notifications...');
-  
   // Sample board creation notification
   const sampleNotification1: Notification = {
     id: 1,
@@ -100,7 +97,6 @@ if (notifications.length === 0) {
 
   notifications = [sampleNotification1, sampleNotification2, sampleNotification3];
   saveNotifications(notifications);
-  console.log('🔔 Sample notifications created:', notifications.length);
 }
 
 // Notification Service
@@ -121,7 +117,6 @@ export class NotificationService {
     notifications.unshift(newNotification); // Add to beginning
     saveNotifications(notifications);
     
-    console.log('NotificationService: Created notification:', newNotification);
     return newNotification;
   }
 
@@ -344,7 +339,6 @@ export class NotificationService {
 window.addEventListener('storage', (e) => {
   if (e.key === 'notifications') {
     notifications = loadNotifications();
-    console.log('NotificationService: Storage changed, reloaded notifications');
   }
 });
 

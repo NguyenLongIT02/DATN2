@@ -26,6 +26,7 @@ public interface ScrumboardMapper {
 
     // List mappings
     @Mapping(target = "cards", source = "cards", qualifiedByName = "cardSetToList")
+    @Mapping(target = "statusType", source = "statusType", qualifiedByName = "statusTypeToString")
     CardListDto toCardListDto(ListEntity list);
 
     List<CardListDto> toCardListDtoList(List<ListEntity> lists);
@@ -34,11 +35,13 @@ public interface ScrumboardMapper {
     @Mapping(target = "desc", source = "description")
     @Mapping(target = "date", source = "date", qualifiedByName = "instantToString")
     @Mapping(target = "laneId", source = "list.id")
+    @Mapping(target = "status", source = "list.statusType", defaultValue = "NONE")
     @Mapping(target = "label", source = "labels", qualifiedByName = "cardLabelsToLabelDtos")
     @Mapping(target = "members", source = "members", qualifiedByName = "cardMembersToMemberDtos")
     @Mapping(target = "attachments", source = "attachments")
     @Mapping(target = "comments", source = "comments", qualifiedByName = "commentsToCommentDtos")
     @Mapping(target = "checkedList", source = "checklistItems")
+    @Mapping(target = "dependencies", source = "dependencies", qualifiedByName = "dependenciesToIds")
     CardDto toCardDto(CardEntity card);
 
     List<CardDto> toCardDtoList(List<CardEntity> cards);
@@ -84,6 +87,12 @@ public interface ScrumboardMapper {
     default String instantToString(Instant instant) {
         if (instant == null) return null;
         return instant.toString();
+    }
+
+    @Named("statusTypeToString")
+    default String statusTypeToString(ListStatusType statusType) {
+        if (statusType == null) return "NONE";
+        return statusType.name();
     }
 
     @Named("cardLabelsToLabelDtos")
@@ -149,6 +158,15 @@ public interface ScrumboardMapper {
         if (cards == null) return List.of();
         return cards.stream()
                 .map(this::toCardDto)
+                .collect(Collectors.toList());
+    }
+
+    @Named("dependenciesToIds")
+    default List<Long> dependenciesToIds(List<TaskDependencyEntity> dependencies) {
+        if (dependencies == null) return List.of();
+        return dependencies.stream()
+                .filter(dep -> dep != null && dep.getPredecessor() != null)
+                .map(dep -> dep.getPredecessor().getId())
                 .collect(Collectors.toList());
     }
 }

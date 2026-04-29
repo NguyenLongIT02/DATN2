@@ -33,6 +33,7 @@ public class CardService {
     private final CardMemberRepository cardMemberRepository;
     private final CardLabelRepository cardLabelRepository;
     private final ChecklistItemRepository checklistItemRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
     private final ActivityLogService activityLogService;
     private final vn.nguyenlong.taskmanager.notifications.service.NotificationService notificationService;
     private final vn.nguyenlong.taskmanager.websocket.service.WebSocketBroadcastService webSocketBroadcastService;
@@ -73,6 +74,10 @@ public class CardService {
             card.setComments(c.getComments());
         });
         
+        // ✅ FIX: Load dependencies
+        cardRepository.findByIdWithDependencies(id).ifPresent(c -> {
+            card.setDependencies(c.getDependencies());
+        });
         
         return scrumboardMapper.toCardDto(card);
     }
@@ -106,7 +111,6 @@ public class CardService {
         card.setTitle(request.getTitle());
         card.setDescription(request.getDescription());
         card.setList(list);
-        card.setStatus(request.getStatus() != null ? request.getStatus() : list.getName());
         
         if (request.getDate() != null && !request.getDate().isEmpty()) {
             try {
@@ -191,17 +195,16 @@ public class CardService {
         }
         
         if (request.getLaneId() != null) {
-            ListEntity list = listRepository.findById(request.getLaneId())
+            ListEntity targetList = listRepository.findById(request.getLaneId())
                     .orElseThrow(() -> new NotFoundException("List not found with id: " + request.getLaneId()));
-            card.setList(list);
-        }
-        
-        String targetStatus = request.getStatus() != null ? request.getStatus() : (card.getList() != null ? card.getList().getName() : card.getStatus());
-        validateChecklistItems(card, targetStatus);
 
-        if (request.getStatus() != null) {
-            card.setStatus(request.getStatus());
+            if (card.getList() != null && targetList.getId() != null && !targetList.getId().equals(card.getList().getId())) {
+                validateMoveCard(card, targetList, request.getMemberIds());
+            }
+
+            card.setList(targetList);
         }
+
         CardEntity updatedCard = cardRepository.save(card);
         
         // Update members if provided
@@ -217,9 +220,10 @@ public class CardService {
         return scrumboardMapper.toCardDto(updatedCard);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public CardDto updateCardCategory(UpdateCardCategoryRequest request) {
         
-        CardEntity card = cardRepository.findById(request.getCardId())
+        CardEntity card = cardRepository.findByIdWithListAndBoard(request.getCardId())
                 .orElseThrow(() -> new NotFoundException("Card not found with id: " + request.getCardId()));
         
         ListEntity newList = listRepository.findById(request.getLaneId())
@@ -228,11 +232,9 @@ public class CardService {
         Long oldListId = card.getList().getId();
         String oldListName = card.getList().getName();
         
-        // Validate checklist if moving to main statuses
-        validateChecklistItems(card, newList.getName());
-        
+        validateMoveCard(card, newList, null);
+
         card.setList(newList);
-        card.setStatus(newList.getName());
         CardEntity updatedCard = cardRepository.save(card);
         CardDto cardDto = scrumboardMapper.toCardDto(updatedCard);
         
@@ -268,6 +270,7 @@ public class CardService {
             activityLogRepository.nullifyCardId(id);
             notificationRepository.deleteByCardId(id);
             commentRepository.deleteByCardId(id);
+            taskDependencyRepository.deleteByCardId(id);
             cardMemberRepository.deleteByCardId(id);
             cardLabelRepository.deleteByCardId(id);
             attachmentRepository.deleteByCardId(id);
@@ -412,23 +415,117 @@ public class CardService {
         }
     }
 
-    private void validateChecklistItems(CardEntity card, String status) {
-        if (status == null) return;
+    private void validateMoveCard(CardEntity card, ListEntity targetList, List<Long> targetMemberIds) {
+        ListStatusType currentStatus = getEffectiveStatusType(card.getList());
+        ListStatusType targetStatus = getEffectiveStatusType(targetList);
+
+        log.info("Validating move for card {}: {} -> {}", card.getId(), currentStatus, targetStatus);
+
+        validateWorkflow(currentStatus, targetStatus);
+
+        if (targetStatus == ListStatusType.IN_PROGRESS) {
+            log.info("Target status is IN_PROGRESS, checking dependencies for card {}", card.getId());
+            validateDependenciesForStart(card.getId());
+        }
+
+        if (targetStatus == ListStatusType.DONE) {
+            log.info("Target status is DONE, checking definition of done for card {}", card.getId());
+            validateDefinitionOfDone(card.getId(), currentStatus, targetMemberIds);
+        }
+    }
+
+    private ListStatusType getEffectiveStatusType(ListEntity list) {
+        if (list == null || list.getStatusType() == null) {
+            return ListStatusType.NONE;
+        }
+        return list.getStatusType();
+    }
+
+    private void validateWorkflow(ListStatusType currentStatus, ListStatusType targetStatus) {
+        // Disallow skipping TODO -> DONE
+        if (currentStatus == ListStatusType.TODO && targetStatus == ListStatusType.DONE) {
+            throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                    vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_WORKFLOW_INVALID
+            );
+        }
         
-        String normalizedStatus = status.toLowerCase().trim();
-        // Kiểm tra 2 trạng thái chính: "đang làm" và "hoàn thành"
-        if (normalizedStatus.equals("đang làm") || normalizedStatus.equals("hoàn thành")) {
-            // Load lại checklist để đảm bảo dữ liệu mới nhất
-            List<ChecklistItemEntity> checklist = checklistItemRepository.findByCardId(card.getId());
+        // Disallow backward moves from DONE
+        if (currentStatus == ListStatusType.DONE && 
+            (targetStatus == ListStatusType.IN_PROGRESS || targetStatus == ListStatusType.TODO)) {
+            throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                    vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_WORKFLOW_BACKWARD_NOT_ALLOWED
+            );
+        }
+        
+        // Disallow backward move from IN_PROGRESS to TODO
+        if (currentStatus == ListStatusType.IN_PROGRESS && targetStatus == ListStatusType.TODO) {
+            throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                    vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_WORKFLOW_BACKWARD_NOT_ALLOWED
+            );
+        }
+    }
+
+    private void validateDependenciesForStart(Long successorCardId) {
+        if (successorCardId == null) return;
+
+        List<TaskDependencyEntity> dependencies = taskDependencyRepository
+                .findBySuccessorIdWithPredecessorAndList(successorCardId);
+
+        log.info("Validating dependencies for card {}: found {} dependencies", successorCardId, 
+                dependencies != null ? dependencies.size() : 0);
+
+        if (dependencies == null || dependencies.isEmpty()) return;
+
+        for (TaskDependencyEntity dep : dependencies) {
+            if (dep == null || dep.getPredecessor() == null) continue;
+
+            ListStatusType predecessorStatus = getEffectiveStatusType(dep.getPredecessor().getList());
+            log.info("Dependency check: card {} depends on card {} with status {}", 
+                    successorCardId, dep.getPredecessor().getId(), predecessorStatus);
             
-            if (checklist != null && !checklist.isEmpty()) {
-                boolean hasUnfinished = checklist.stream().anyMatch(item -> !item.isChecked());
-                if (hasUnfinished) {
-                    throw new vn.nguyenlong.taskmanager.core.exception.AppException(
-                        vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_CHECKLIST_INCOMPLETE
-                    );
-                }
+            if (predecessorStatus != ListStatusType.DONE) {
+                log.warn("Blocking card {} move: dependency {} is not DONE (status: {})", 
+                        successorCardId, dep.getPredecessor().getId(), predecessorStatus);
+                throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                        vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_DEPENDENCY_INCOMPLETE
+                );
             }
+        }
+        
+        log.info("All dependencies for card {} are DONE, allowing move", successorCardId);
+    }
+
+    private void validateDefinitionOfDone(Long cardId, ListStatusType currentStatus, List<Long> targetMemberIds) {
+        // 1) Card must be in IN_PROGRESS before moving to DONE
+        if (currentStatus != ListStatusType.IN_PROGRESS) {
+            throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                    vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_DOD_NOT_IN_PROGRESS
+            );
+        }
+
+        // 2) If checklist exists, all must be completed
+        List<ChecklistItemEntity> checklist = checklistItemRepository.findByCardId(cardId);
+        if (checklist != null && !checklist.isEmpty()) {
+            boolean hasUnfinished = checklist.stream().anyMatch(item -> item != null && !item.isChecked());
+            if (hasUnfinished) {
+                throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                        vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_CHECKLIST_INCOMPLETE
+                );
+            }
+        }
+
+        // 3) Card must have at least 1 member
+        boolean hasMembers;
+        if (targetMemberIds != null) {
+            hasMembers = !targetMemberIds.isEmpty();
+        } else {
+            hasMembers = cardMemberRepository.countByCardId(cardId) > 0;
+        }
+
+        if (!hasMembers) {
+            throw new vn.nguyenlong.taskmanager.core.exception.AppException(
+                    vn.nguyenlong.taskmanager.core.exception.ErrorCode.SCRUMBOARD_DOD_MEMBER_REQUIRED
+            );
         }
     }
     
@@ -469,4 +566,79 @@ public class CardService {
         
         log.info("DueDate validation passed");
     }
+
+    // ==================== DEPENDENCY MANAGEMENT ====================
+
+    /**
+     * Add dependencies (predecessors) to a card
+     * @param cardId The successor card ID
+     * @param predecessorIds List of predecessor card IDs
+     */
+    public void addDependencies(Long cardId, List<Long> predecessorIds) {
+        CardEntity card = cardRepository.findByIdWithListAndBoard(cardId)
+                .orElseThrow(() -> new NotFoundException("Card not found with id: " + cardId));
+
+        Long boardId = card.getList().getBoard().getId();
+
+        for (Long predecessorId : predecessorIds) {
+            // Validate: không cho self-dependency
+            if (predecessorId.equals(cardId)) {
+                throw new IllegalArgumentException("Card cannot depend on itself");
+            }
+
+            // Validate: predecessor phải tồn tại và cùng board
+            CardEntity predecessor = cardRepository.findByIdWithListAndBoard(predecessorId)
+                    .orElseThrow(() -> new NotFoundException("Predecessor card not found with id: " + predecessorId));
+
+            if (!predecessor.getList().getBoard().getId().equals(boardId)) {
+                throw new IllegalArgumentException("Predecessor card must be in the same board");
+            }
+
+            // Check duplicate
+            TaskDependencyEntity existing = taskDependencyRepository
+                    .findBySuccessorIdAndPredecessorId(cardId, predecessorId);
+            if (existing != null) {
+                continue; // Skip duplicate
+            }
+
+            // Create dependency
+            TaskDependencyEntity dependency = new TaskDependencyEntity();
+            dependency.setSuccessor(card);
+            dependency.setPredecessor(predecessor);
+            taskDependencyRepository.save(dependency);
+
+            log.info("Added dependency: card {} depends on card {}", cardId, predecessorId);
+        }
+    }
+
+    /**
+     * Remove a specific dependency
+     * @param cardId The successor card ID
+     * @param predecessorId The predecessor card ID to remove
+     */
+    public void removeDependency(Long cardId, Long predecessorId) {
+        TaskDependencyEntity dependency = taskDependencyRepository
+                .findBySuccessorIdAndPredecessorId(cardId, predecessorId);
+
+        if (dependency == null) {
+            throw new NotFoundException("Dependency not found");
+        }
+
+        taskDependencyRepository.delete(dependency);
+        log.info("Removed dependency: card {} no longer depends on card {}", cardId, predecessorId);
+    }
+
+    /**
+     * Get all dependencies for a card
+     * @param cardId The card ID
+     * @return List of predecessor card IDs
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getDependencies(Long cardId) {
+        List<TaskDependencyEntity> dependencies = taskDependencyRepository.findBySuccessorId(cardId);
+        return dependencies.stream()
+                .map(dep -> dep.getPredecessor().getId())
+                .toList();
+    }
 }
+

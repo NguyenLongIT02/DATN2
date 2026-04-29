@@ -2,9 +2,14 @@ import AppCard from '@crema/components/AppCard';
 import {Avatar} from 'antd';
 import styled from 'styled-components';
 
-export const StyledScrumBoardCardDetails = styled(AppCard)`
+interface CardStatusProps {
+  $cardStatus?: 'normal' | 'due-soon' | 'overdue';
+}
+
+export const StyledScrumBoardCardDetails = styled(AppCard)<CardStatusProps>`
   margin-bottom: 8px;
   cursor: pointer;
+  position: relative;
 
   & .ant-card-body {
     padding: 16px 24px;
@@ -38,15 +43,37 @@ export const StyledScrumBoardCardDetailUser = styled.div`
   align-items: center;
 `;
 
-export const StyledScrumBoardCardDetailDate = styled.span`
+export const StyledScrumBoardCardDetailDate = styled.span<CardStatusProps>`
   margin-left: 4px;
   margin-right: auto;
   color: ${({theme}) => theme.palette.text.secondary};
+  font-weight: ${({theme}) => theme.font.weight.medium};
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 
   [dir='rtl'] & {
     margin-left: 0;
     margin-right: 4px;
   }
+
+  /* Color based on status */
+  ${({$cardStatus}) => {
+    if ($cardStatus === 'overdue') {
+      return `
+        color: #ff4d4f;
+        background: rgba(255, 77, 79, 0.1);
+        font-weight: 600;
+      `;
+    } else if ($cardStatus === 'due-soon') {
+      return `
+        color: #faad14;
+        background: rgba(250, 173, 20, 0.1);
+        font-weight: 600;
+      `;
+    }
+    return '';
+  }}
 `;
 export const StyledScrumBoardCardDetailComment = styled.span`
   margin-left: 8px;
