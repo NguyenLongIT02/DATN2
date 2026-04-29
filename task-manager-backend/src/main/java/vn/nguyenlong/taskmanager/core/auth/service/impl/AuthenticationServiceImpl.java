@@ -47,7 +47,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final UserRoleRepository userRoleRepository;
 
-
     @Value("${jwt.expiration-refresh-token}")
     private long expirationRefreshTokenTime;
 
@@ -56,9 +55,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public TokenResponse login(LogInRequest request, HttpServletRequest webRequest) {
         log.info("------------------- Authenticating ---------------------");
         var user = userRepository.findUserByUsernameOrEmail(request.getUsername(), request.getUsername()).orElseThrow(
-                () -> new ValidationException(MessageKeys.AUTH_INVALID_CREDENTIALS)
-        );
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+                () -> new ValidationException(MessageKeys.AUTH_INVALID_CREDENTIALS));
+        authenticationManager
+                .authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
         String deviceId = webRequest.getHeader("x-device-id");
         userDeviceTokenService.validateAndLimitDeviceIp(user, deviceId);
 
@@ -86,7 +85,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(RegisterRequest request, HttpServletRequest webRequest) {
-        Optional<User> existingUser = userRepository.findUserByUsernameOrEmail(request.getUsername(), request.getEmail());
+        Optional<User> existingUser = userRepository.findUserByUsernameOrEmail(request.getUsername(),
+                request.getEmail());
         if (existingUser.isPresent()) {
             if (existingUser.get().getUsername().equals(request.getUsername())) {
                 throw new ValidationException(MessageKeys.USERNAME_ALREADY_EXISTS);
