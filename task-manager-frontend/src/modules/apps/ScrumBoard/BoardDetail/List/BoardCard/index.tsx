@@ -82,12 +82,11 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
   // So we just show if it has dependencies
   const hasBlockingDependencies = safeDependencies.length > 0;
 
-  // Determine card status based on deadline - use useMemo to recalculate when date changes
-  // If card is in DONE list, don't show overdue/due-soon status
+  // Determine card status based on list status and deadline
   const cardStatus = useMemo(() => {
-    // If in DONE list, always show as normal (completed tasks don't need deadline warnings)
+    // If in DONE list, show as completed (green)
     if (listStatusType === 'DONE') {
-      return 'normal';
+      return 'completed';
     }
     
     if (!displayDate) return 'normal';
@@ -96,15 +95,15 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
     const deadline = dayjs(displayDate);
     const daysUntilDeadline = deadline.diff(now, 'day');
     
-    // Overdue (past deadline)
+    // Overdue (past deadline) - red
     if (daysUntilDeadline < 0) {
       return 'overdue';
     }
-    // Due soon (within 3 days)
+    // Due soon (within 3 days) - yellow
     else if (daysUntilDeadline <= 3) {
       return 'due-soon';
     }
-    // Normal
+    // Normal - no special color
     return 'normal';
   }, [displayDate, listStatusType]); // Recalculate when displayDate or listStatusType changes
 
@@ -139,7 +138,26 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
       <StyledScrumBoardCardDetailUser>
         {safeMembers.length > 0 ? <Members members={safeMembers} /> : null}
 
-        <StyledScrumBoardCardDetailDate $cardStatus={cardStatus}>
+        <StyledScrumBoardCardDetailDate 
+          $cardStatus={cardStatus}
+          style={{
+            ...(cardStatus === 'completed' && {
+              color: '#52c41a',
+              background: 'rgba(82, 196, 26, 0.1)',
+              fontWeight: 600
+            }),
+            ...(cardStatus === 'overdue' && {
+              color: '#ff4d4f',
+              background: 'rgba(255, 77, 79, 0.1)',
+              fontWeight: 600
+            }),
+            ...(cardStatus === 'due-soon' && {
+              color: '#faad14',
+              background: 'rgba(250, 173, 20, 0.1)',
+              fontWeight: 600
+            })
+          }}
+        >
           {displayDate
             ? dayjs(displayDate).format("MMM DD").split(",")[0]
             : null}

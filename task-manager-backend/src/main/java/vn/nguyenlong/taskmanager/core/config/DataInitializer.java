@@ -373,12 +373,10 @@ public class DataInitializer implements CommandLineRunner {
             "Website Bán Xe Ô Tô"
         };
 
-        // Create all 5 boards with workflow + dependencies
+        // Create all 5 boards with full workflow + dependencies
         for (int i = 0; i < projectNames.length; i++) {
             String pName = projectNames[i];
-            boolean isWorkflowBoard = (i <= 2); // First 3 boards have full workflow
-            
-            createProjectBoard(longNguyen, users, pName, i, isWorkflowBoard);
+            createProjectBoard(longNguyen, users, pName, i, true); // All boards have workflow
         }
     }
 
@@ -420,23 +418,13 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
-        ListEntity todoList, inProgressList, doneList;
-        
-        if (hasWorkflow) {
-            todoList = createList(savedBoard, "Cần làm", ListStatusType.TODO);
-            inProgressList = createList(savedBoard, "Đang làm", ListStatusType.IN_PROGRESS);
-            doneList = createList(savedBoard, "Hoàn thành", ListStatusType.DONE);
-        } else {
-            todoList = createList(savedBoard, "Cần làm", ListStatusType.NONE);
-            inProgressList = createList(savedBoard, "Đang làm", ListStatusType.NONE);
-            doneList = createList(savedBoard, "Hoàn thành", ListStatusType.NONE);
-        }
+        // All boards now have workflow
+        ListEntity todoList = createList(savedBoard, "Cần làm", ListStatusType.TODO);
+        ListEntity inProgressList = createList(savedBoard, "Đang làm", ListStatusType.IN_PROGRESS);
+        ListEntity doneList = createList(savedBoard, "Hoàn thành", ListStatusType.DONE);
 
-        if (hasWorkflow) {
-            createWorkflowCards(savedBoard, todoList, inProgressList, doneList, boardUsers, projectIndex);
-        } else {
-            createStandardCards(savedBoard, todoList, inProgressList, doneList, boardUsers, projectIndex);
-        }
+        // Create cards with full pipeline and dependencies
+        createWorkflowCards(savedBoard, todoList, inProgressList, doneList, boardUsers, projectIndex);
         
         log.info("✓ Created project board: {}", projectName);
     }
@@ -444,101 +432,102 @@ public class DataInitializer implements CommandLineRunner {
     private void createWorkflowCards(BoardEntity board, ListEntity todoList, ListEntity inProgressList, 
                                      ListEntity doneList, List<User> boardUsers, int projectIndex) {
         
-        // ============ DONE LIST - Các công việc đã hoàn thành ============
-        CardEntity doneCard1 = createCardWithDeadline(doneList, "Khảo sát và thu thập yêu cầu", 
+        // ============ DONE LIST - Các giai đoạn đầu đã hoàn thành ============
+        CardEntity phase1 = createCardWithDeadline(doneList, "1. Khảo sát hệ thống và thu thập yêu cầu", 
+            boardUsers, -20, 2);
+        
+        CardEntity phase2 = createCardWithDeadline(doneList, "2. Phân tích và đặc tả yêu cầu (SRS)", 
+            boardUsers, -18, 2);
+        
+        CardEntity phase3 = createCardWithDeadline(doneList, "3. Thiết kế Use Case và Activity Diagram", 
             boardUsers, -15, 2);
         
-        CardEntity doneCard2 = createCardWithDeadline(doneList, "Phân tích và đặc tả yêu cầu phần mềm (SRS)", 
+        CardEntity phase4 = createCardWithDeadline(doneList, "4. Thiết kế Class Diagram và Sequence Diagram", 
             boardUsers, -12, 2);
         
-        CardEntity doneCard3 = createCardWithDeadline(doneList, "Thiết kế Use Case Diagram", 
+        CardEntity phase5 = createCardWithDeadline(doneList, "5. Thiết kế cơ sở dữ liệu (ERD)", 
             boardUsers, -10, 2);
         
-        CardEntity doneCard4 = createCardWithDeadline(doneList, "Thiết kế Class Diagram và Sequence Diagram", 
+        CardEntity phase6 = createCardWithDeadline(doneList, "6. Thiết kế giao diện người dùng (UI/UX)", 
             boardUsers, -8, 2);
         
-        CardEntity doneCard5 = createCardWithDeadline(doneList, "Thiết kế Database Schema (ERD)", 
-            boardUsers, -6, 2);
-        
-        // ============ IN_PROGRESS LIST - Đang thực hiện ============
-        CardEntity inProgressCard1 = createCardWithDeadline(inProgressList, "Thiết kế giao diện (UI/UX Mockup)", 
+        // ============ IN_PROGRESS LIST - Đang phát triển ============
+        CardEntity phase7 = createCardWithDeadline(inProgressList, "7. Xây dựng Backend API (Spring Boot)", 
             boardUsers, 2, 1);
         
-        CardEntity inProgressCard2 = createCardWithDeadline(inProgressList, "Xây dựng API Backend (RESTful)", 
+        CardEntity phase8 = createCardWithDeadline(inProgressList, "8. Phát triển Frontend (React/Vue)", 
             boardUsers, 3, 1);
         
-        CardEntity inProgressCard3 = createCardWithDeadline(inProgressList, "Phát triển Frontend (React/Vue)", 
+        CardEntity phase9 = createCardWithDeadline(inProgressList, "9. Tích hợp hệ thống thanh toán", 
             boardUsers, 5, 1);
         
-        CardEntity inProgressCard4 = createCardWithDeadline(inProgressList, "Tích hợp thanh toán trực tuyến", 
+        CardEntity phase10 = createCardWithDeadline(inProgressList, "10. Kiểm thử đơn vị (Unit Testing)", 
             boardUsers, 1, 1);
         
-        // ============ TODO LIST - Cần làm ============
-        // Overdue card
-        CardEntity overdueCard = createCardWithDeadline(todoList, "Fix bug nghiêm trọng - Lỗi đăng nhập [QUÁ HẠN]", 
+        // ============ TODO LIST - Các giai đoạn cuối cần làm ============
+        // Overdue
+        CardEntity overdueCard = createCardWithDeadline(todoList, "11. Fix bug nghiêm trọng [QUÁ HẠN]", 
             boardUsers, -2, 0);
         
-        // Due soon cards
-        CardEntity dueSoonCard1 = createCardWithDeadline(todoList, "Viết Unit Tests cho Backend", 
+        // Due soon
+        CardEntity phase11 = createCardWithDeadline(todoList, "12. Kiểm thử tích hợp (Integration Testing)", 
             boardUsers, 2, 0);
         
-        CardEntity dueSoonCard2 = createCardWithDeadline(todoList, "Kiểm thử tích hợp (Integration Testing)", 
+        CardEntity phase12 = createCardWithDeadline(todoList, "13. Kiểm thử hệ thống (System Testing)", 
             boardUsers, 3, 0);
         
-        // Normal cards
-        CardEntity normalCard1 = createCardWithDeadline(todoList, "Tối ưu hiệu năng và bảo mật", 
-            boardUsers, 8, 0);
+        // Normal
+        CardEntity phase13 = createCardWithDeadline(todoList, "14. Tối ưu hiệu năng và bảo mật", 
+            boardUsers, 7, 0);
         
-        CardEntity normalCard2 = createCardWithDeadline(todoList, "Viết tài liệu API (Swagger/Postman)", 
+        CardEntity phase14 = createCardWithDeadline(todoList, "15. Chuẩn bị môi trường Production", 
             boardUsers, 10, 0);
         
-        CardEntity normalCard3 = createCardWithDeadline(todoList, "Chuẩn bị môi trường Deploy (Docker/CI-CD)", 
+        CardEntity phase15 = createCardWithDeadline(todoList, "16. Deploy lên Production Server", 
             boardUsers, 12, 0);
         
-        CardEntity normalCard4 = createCardWithDeadline(todoList, "Deploy lên Production Server", 
-            boardUsers, 15, 0);
+        CardEntity phase16 = createCardWithDeadline(todoList, "17. Kiểm thử chấp nhận (UAT)", 
+            boardUsers, 14, 0);
         
-        // ============ DEPENDENCIES - Chỉ cho 2 board đầu tiên ============
-        if (projectIndex <= 1) {
-            // Tối ưu phải đợi API Backend hoàn thành
-            createDependency(normalCard1, inProgressCard2);
-            
-            // Viết Unit Tests phải đợi Database Schema xong
-            createDependency(dueSoonCard1, doneCard5);
-            
-            // Viết tài liệu API phải đợi Unit Tests xong
-            createDependency(normalCard2, dueSoonCard1);
-            
-            // Fix bug phải đợi Frontend phát triển xong
-            createDependency(overdueCard, inProgressCard3);
-            
-            // Deploy phải đợi tối ưu xong
-            createDependency(normalCard4, normalCard1);
-            
-            // Integration Testing phải đợi UI/UX xong
-            createDependency(dueSoonCard2, inProgressCard1);
-        }
-    }
-
-    private void createStandardCards(BoardEntity board, ListEntity todoList, ListEntity inProgressList, 
-                                     ListEntity doneList, List<User> boardUsers, int projectIndex) {
+        CardEntity phase17 = createCardWithDeadline(todoList, "18. Bàn giao tài liệu và hướng dẫn sử dụng", 
+            boardUsers, 16, 0);
         
-        // ============ DONE LIST ============
-        createCardWithDeadline(doneList, "Nghiên cứu công nghệ và framework", boardUsers, -12, 2);
-        createCardWithDeadline(doneList, "Thiết kế kiến trúc hệ thống", boardUsers, -9, 2);
-        createCardWithDeadline(doneList, "Setup môi trường phát triển", boardUsers, -7, 2);
+        // ============ DEPENDENCIES - Pipeline workflow cho TẤT CẢ boards ============
+        // Phase 7 (Backend) phải đợi Phase 6 (UI/UX) xong
+        createDependency(phase7, phase6);
         
-        // ============ IN_PROGRESS LIST ============
-        createCardWithDeadline(inProgressList, "Phát triển module quản lý người dùng", boardUsers, 3, 1);
-        createCardWithDeadline(inProgressList, "Xây dựng dashboard và báo cáo", boardUsers, 4, 1);
-        createCardWithDeadline(inProgressList, "Kiểm thử chức năng (Functional Testing)", boardUsers, 6, 1);
+        // Phase 8 (Frontend) phải đợi Phase 7 (Backend) xong
+        createDependency(phase8, phase7);
         
-        // ============ TODO LIST ============
-        createCardWithDeadline(todoList, "Tối ưu hóa truy vấn Database", boardUsers, 8, 0);
-        createCardWithDeadline(todoList, "Cấu hình bảo mật và phân quyền", boardUsers, 10, 0);
-        createCardWithDeadline(todoList, "Viết tài liệu hướng dẫn sử dụng", boardUsers, 13, 0);
-        createCardWithDeadline(todoList, "Triển khai lên Production", boardUsers, 15, 0);
-        createCardWithDeadline(todoList, "Bảo trì và nâng cấp tính năng", boardUsers, 20, 0);
+        // Phase 9 (Thanh toán) phải đợi Phase 7 (Backend) xong
+        createDependency(phase9, phase7);
+        
+        // Phase 10 (Unit Testing) phải đợi Phase 7 (Backend) xong
+        createDependency(phase10, phase7);
+        
+        // Phase 11 (Fix bug) phải đợi Phase 8 (Frontend) xong
+        createDependency(overdueCard, phase8);
+        
+        // Phase 12 (Integration Testing) phải đợi Phase 10 (Unit Testing) xong
+        createDependency(phase11, phase10);
+        
+        // Phase 13 (System Testing) phải đợi Phase 12 (Integration Testing) xong
+        createDependency(phase12, phase11);
+        
+        // Phase 14 (Tối ưu) phải đợi Phase 13 (System Testing) xong
+        createDependency(phase13, phase12);
+        
+        // Phase 15 (Chuẩn bị Production) phải đợi Phase 14 (Tối ưu) xong
+        createDependency(phase14, phase13);
+        
+        // Phase 16 (Deploy) phải đợi Phase 15 (Chuẩn bị Production) xong
+        createDependency(phase15, phase14);
+        
+        // Phase 17 (UAT) phải đợi Phase 16 (Deploy) xong
+        createDependency(phase16, phase15);
+        
+        // Phase 18 (Bàn giao) phải đợi Phase 17 (UAT) xong
+        createDependency(phase17, phase16);
     }
 
     private CardEntity createCardWithDeadline(ListEntity list, String title, List<User> boardUsers, 
@@ -585,43 +574,80 @@ public class DataInitializer implements CommandLineRunner {
         String title = card.getTitle().toLowerCase();
         String[] items;
 
-        if (title.contains("khảo sát") || title.contains("thu thập")) {
-            items = new String[]{"Phỏng vấn stakeholder", "Khảo sát người dùng", "Phân tích đối thủ cạnh tranh"};
-        } else if (title.contains("phân tích") || title.contains("đặc tả") || title.contains("srs")) {
+        // Phase 1: Khảo sát
+        if (title.contains("1.") && title.contains("khảo sát")) {
+            items = new String[]{"Phỏng vấn stakeholder", "Khảo sát người dùng cuối", "Phân tích đối thủ cạnh tranh"};
+        } 
+        // Phase 2: Phân tích SRS
+        else if (title.contains("2.") && (title.contains("phân tích") || title.contains("srs"))) {
             items = new String[]{"Liệt kê yêu cầu chức năng", "Xác định yêu cầu phi chức năng", "Viết tài liệu SRS"};
-        } else if (title.contains("use case")) {
-            items = new String[]{"Xác định Actor", "Vẽ Use Case Diagram", "Mô tả chi tiết Use Case"};
-        } else if (title.contains("class diagram") || title.contains("sequence")) {
+        } 
+        // Phase 3: Use Case
+        else if (title.contains("3.") && title.contains("use case")) {
+            items = new String[]{"Xác định Actor", "Vẽ Use Case Diagram", "Vẽ Activity Diagram"};
+        } 
+        // Phase 4: Class & Sequence Diagram
+        else if (title.contains("4.") && (title.contains("class") || title.contains("sequence"))) {
             items = new String[]{"Thiết kế Class Diagram", "Vẽ Sequence Diagram", "Review với team"};
-        } else if (title.contains("database") || title.contains("erd") || title.contains("schema")) {
-            items = new String[]{"Thiết kế ERD", "Tạo bảng và quan hệ", "Tối ưu Index và Query"};
-        } else if (title.contains("giao diện") || title.contains("ui/ux") || title.contains("mockup")) {
-            items = new String[]{"Vẽ Wireframe", "Thiết kế Mockup", "Tạo Prototype tương tác"};
-        } else if (title.contains("api") || title.contains("backend") || title.contains("restful")) {
-            items = new String[]{"Thiết kế API Endpoints", "Lập trình Controller/Service", "Viết Unit Test"};
-        } else if (title.contains("frontend") || title.contains("react") || title.contains("vue")) {
-            items = new String[]{"Dựng Component Layout", "Tích hợp API", "Kiểm tra Responsive"};
-        } else if (title.contains("thanh toán") || title.contains("payment")) {
-            items = new String[]{"Tích hợp Payment Gateway", "Test Sandbox", "Xử lý Webhook"};
-        } else if (title.contains("unit test")) {
-            items = new String[]{"Viết Test Case", "Đạt 80% Code Coverage", "Chạy CI/CD Pipeline"};
-        } else if (title.contains("integration") || title.contains("tích hợp")) {
+        } 
+        // Phase 5: Database
+        else if (title.contains("5.") && (title.contains("database") || title.contains("erd"))) {
+            items = new String[]{"Thiết kế ERD", "Tạo bảng và quan hệ", "Tối ưu Index"};
+        } 
+        // Phase 6: UI/UX
+        else if (title.contains("6.") && (title.contains("giao diện") || title.contains("ui/ux"))) {
+            items = new String[]{"Vẽ Wireframe", "Thiết kế Mockup", "Tạo Prototype"};
+        } 
+        // Phase 7: Backend
+        else if (title.contains("7.") && title.contains("backend")) {
+            items = new String[]{"Setup Spring Boot Project", "Thiết kế API Endpoints", "Lập trình Controller/Service/Repository"};
+        } 
+        // Phase 8: Frontend
+        else if (title.contains("8.") && title.contains("frontend")) {
+            items = new String[]{"Setup React/Vue Project", "Dựng Component Layout", "Tích hợp API Backend"};
+        } 
+        // Phase 9: Thanh toán
+        else if (title.contains("9.") && title.contains("thanh toán")) {
+            items = new String[]{"Tích hợp Payment Gateway", "Test Sandbox Environment", "Xử lý Webhook Callback"};
+        } 
+        // Phase 10: Unit Testing
+        else if (title.contains("10.") && title.contains("unit")) {
+            items = new String[]{"Viết Unit Test cho Service", "Đạt 80% Code Coverage", "Chạy Test trên CI/CD"};
+        } 
+        // Phase 11: Fix bug
+        else if (title.contains("11.") && title.contains("bug")) {
+            items = new String[]{"Tái hiện lỗi", "Debug và tìm root cause", "Viết bản vá và test lại"};
+        } 
+        // Phase 12: Integration Testing
+        else if (title.contains("12.") && title.contains("integration")) {
             items = new String[]{"Test API Integration", "Test Database Connection", "Test Third-party Services"};
-        } else if (title.contains("tối ưu") || title.contains("hiệu năng") || title.contains("bảo mật")) {
-            items = new String[]{"Profiling Performance", "Tối ưu Query", "Kiểm tra Security Vulnerabilities"};
-        } else if (title.contains("tài liệu") || title.contains("swagger") || title.contains("postman")) {
-            items = new String[]{"Viết API Documentation", "Tạo Postman Collection", "Hướng dẫn sử dụng"};
-        } else if (title.contains("deploy") || title.contains("triển khai") || title.contains("docker") || title.contains("ci-cd")) {
-            items = new String[]{"Cấu hình Docker", "Setup CI/CD Pipeline", "Deploy lên Server"};
-        } else if (title.contains("bug") || title.contains("fix") || title.contains("lỗi")) {
-            items = new String[]{"Tái hiện lỗi", "Debug và tìm nguyên nhân", "Viết bản vá và test"};
-        } else if (title.contains("nghiên cứu") || title.contains("setup")) {
-            items = new String[]{"Nghiên cứu tài liệu", "So sánh các giải pháp", "Quyết định công nghệ"};
-        } else if (title.contains("kiểm thử") || title.contains("testing")) {
-            items = new String[]{"Viết Test Plan", "Thực hiện Test Cases", "Báo cáo Bug"};
-        } else if (title.contains("bảo trì") || title.contains("nâng cấp")) {
-            items = new String[]{"Monitor hệ thống", "Fix bug phát sinh", "Cập nhật tính năng mới"};
-        } else {
+        } 
+        // Phase 13: System Testing
+        else if (title.contains("13.") && title.contains("system")) {
+            items = new String[]{"Test toàn bộ luồng nghiệp vụ", "Test trên nhiều trình duyệt", "Test trên mobile"};
+        } 
+        // Phase 14: Tối ưu
+        else if (title.contains("14.") && title.contains("tối ưu")) {
+            items = new String[]{"Profiling Performance", "Tối ưu Query Database", "Kiểm tra Security Vulnerabilities"};
+        } 
+        // Phase 15: Chuẩn bị Production
+        else if (title.contains("15.") && title.contains("chuẩn bị")) {
+            items = new String[]{"Cấu hình Docker/Docker Compose", "Setup CI/CD Pipeline", "Cấu hình Nginx/Load Balancer"};
+        } 
+        // Phase 16: Deploy
+        else if (title.contains("16.") && title.contains("deploy")) {
+            items = new String[]{"Build Production", "Deploy lên Server", "Kiểm tra Health Check"};
+        } 
+        // Phase 17: UAT
+        else if (title.contains("17.") && title.contains("uat")) {
+            items = new String[]{"Chuẩn bị Test Case UAT", "Khách hàng test chấp nhận", "Thu thập feedback"};
+        } 
+        // Phase 18: Bàn giao
+        else if (title.contains("18.") && title.contains("bàn giao")) {
+            items = new String[]{"Viết tài liệu hướng dẫn sử dụng", "Viết tài liệu kỹ thuật", "Đào tạo người dùng"};
+        } 
+        // Default
+        else {
             items = new String[]{"Lên kế hoạch", "Thực hiện công việc", "Review và hoàn thiện"};
         }
 
