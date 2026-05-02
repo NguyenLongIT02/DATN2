@@ -110,6 +110,26 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void cleanupOldTables() {
+        log.info("Checking and migrating old data...");
+        try {
+            Integer oldExists = jdbcTemplate.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_name = 'tbl_task_dependency'", Integer.class);
+            if (oldExists != null && oldExists > 0) {
+                // Kiểm tra xem bảng mới đã có dữ liệu chưa
+                Integer newCount = jdbcTemplate.queryForObject("SELECT count(*) FROM tbl_phu_thuoc_cong_viec", Integer.class);
+                if (newCount != null && newCount == 0) {
+                    jdbcTemplate.execute("DROP TABLE tbl_phu_thuoc_cong_viec CASCADE");
+                    jdbcTemplate.execute("ALTER TABLE tbl_task_dependency RENAME TO tbl_phu_thuoc_cong_viec");
+                    log.info("✓ Successfully migrated data from tbl_task_dependency to tbl_phu_thuoc_cong_viec by renaming.");
+                } else {
+                    jdbcTemplate.execute("INSERT INTO tbl_phu_thuoc_cong_viec (id, created_at, created_by, updated_at, updated_by, predecessor_id, successor_id) SELECT id, created_at, created_by, updated_at, updated_by, predecessor_id, successor_id FROM tbl_task_dependency ON CONFLICT (id) DO NOTHING");
+                    jdbcTemplate.execute("DROP TABLE tbl_task_dependency CASCADE");
+                    log.info("✓ Successfully copied data to tbl_phu_thuoc_cong_viec and dropped old table.");
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Table migration check failed: " + e.getMessage());
+        }
+
         log.info("Cleaning up unused English tables...");
         String[] oldTables = {
             "tbl_card_checklist", "tbl_comment", "tbl_attachment", "tbl_card_member",

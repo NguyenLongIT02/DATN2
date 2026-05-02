@@ -157,15 +157,21 @@ public class ListService {
                 cardLabelRepository.deleteByCardId(cardId);
             }
             
+            // 3. Xóa liên kết hai chiều TRƯỚC KHI FLUSH để tránh lỗi TransientObjectException
+            if (list.getBoard() != null) {
+                list.getBoard().getLists().remove(list);
+            }
+            list.getCards().clear();
+            
             // Flush các lệnh xóa card data
             entityManager.flush();
 
-            // 3. Xóa các thẻ
+            // 4. Xóa các thẻ
             cardRepository.deleteByListId(id);
             entityManager.flush();
 
-            // 4. Cuối cùng mới xóa List
-            listRepository.deleteById(id);
+            // 5. Cuối cùng mới xóa List
+            listRepository.delete(list);
             
             // Flush và Clear cache
             entityManager.flush();

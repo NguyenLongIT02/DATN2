@@ -3,7 +3,7 @@ import {Avatar} from 'antd';
 import styled from 'styled-components';
 
 interface CardStatusProps {
-  $cardStatus?: 'normal' | 'due-soon' | 'overdue' | 'completed';
+  $cardStatus?: 'normal' | 'in-progress' | 'overdue' | 'completed';
 }
 
 export const StyledScrumBoardCardDetails = styled(AppCard)<CardStatusProps>`
@@ -20,38 +20,43 @@ export const StyledScrumBoardCardDetails = styled(AppCard)<CardStatusProps>`
   ${({$cardStatus}) => {
     if ($cardStatus === 'completed') {
       return `
-        background: linear-gradient(to right, rgba(82, 196, 26, 0.08) 0%, rgba(82, 196, 26, 0.02) 100%);
-        border-left: 4px solid #52c41a;
+        background: #d9f7be !important;
+        border: 1px solid #b7eb8f !important;
+        border-left: 4px solid #52c41a !important;
         
         &:hover {
-          background: linear-gradient(to right, rgba(82, 196, 26, 0.12) 0%, rgba(82, 196, 26, 0.04) 100%);
-          box-shadow: 0 2px 8px rgba(82, 196, 26, 0.15);
+          background: #b7eb8f !important;
+          box-shadow: 0 4px 12px rgba(82, 196, 26, 0.35) !important;
         }
       `;
     } else if ($cardStatus === 'overdue') {
       return `
-        background: linear-gradient(to right, rgba(255, 77, 79, 0.08) 0%, rgba(255, 77, 79, 0.02) 100%);
-        border-left: 4px solid #ff4d4f;
+        background: #ffccc7 !important;
+        border: 1px solid #ffa39e !important;
+        border-left: 4px solid #ff4d4f !important;
         
         &:hover {
-          background: linear-gradient(to right, rgba(255, 77, 79, 0.12) 0%, rgba(255, 77, 79, 0.04) 100%);
-          box-shadow: 0 2px 8px rgba(255, 77, 79, 0.15);
+          background: #ffa39e !important;
+          box-shadow: 0 4px 12px rgba(255, 77, 79, 0.35) !important;
         }
       `;
-    } else if ($cardStatus === 'due-soon') {
+    } else if ($cardStatus === 'in-progress') {
       return `
-        background: linear-gradient(to right, rgba(250, 173, 20, 0.08) 0%, rgba(250, 173, 20, 0.02) 100%);
-        border-left: 4px solid #faad14;
+        background: #ffe58f !important;
+        border: 1px solid #ffd666 !important;
+        border-left: 4px solid #faad14 !important;
         
         &:hover {
-          background: linear-gradient(to right, rgba(250, 173, 20, 0.12) 0%, rgba(250, 173, 20, 0.04) 100%);
-          box-shadow: 0 2px 8px rgba(250, 173, 20, 0.15);
+          background: #ffd666 !important;
+          box-shadow: 0 4px 12px rgba(250, 173, 20, 0.35) !important;
         }
       `;
     }
     return `
+      background: ${({theme}) => theme.palette.background.paper} !important;
+      border-left: 4px solid transparent;
       &:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
       }
     `;
   }}
@@ -112,7 +117,7 @@ export const StyledScrumBoardCardDetailDate = styled.span<CardStatusProps>`
         background: rgba(255, 77, 79, 0.1);
         font-weight: 600;
       `;
-    } else if ($cardStatus === 'due-soon') {
+    } else if ($cardStatus === 'in-progress') {
       return `
         color: #faad14;
         background: rgba(250, 173, 20, 0.1);

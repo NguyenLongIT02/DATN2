@@ -74,7 +74,7 @@ public class CardService {
             card.setComments(c.getComments());
         });
         
-        // ✅ FIX: Load dependencies
+        //  Load dependencies
         cardRepository.findByIdWithDependencies(id).ifPresent(c -> {
             card.setDependencies(c.getDependencies());
         });
@@ -277,6 +277,11 @@ public class CardService {
             checklistItemRepository.deleteByCardId(id);
         } catch (Exception e) {
             log.warn("Error during manual card cleanup: {}", e.getMessage());
+        }
+        
+        // Remove bidirectional link to prevent TransientObjectException
+        if (card.getList() != null) {
+            card.getList().getCards().remove(card);
         }
         
         cardRepository.delete(card);

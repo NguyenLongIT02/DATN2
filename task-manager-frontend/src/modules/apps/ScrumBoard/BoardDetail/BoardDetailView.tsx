@@ -634,7 +634,7 @@ const BoardDetailView: React.FC<BoardDetailViewProps> = ({
           onDeleteSelectedList(laneId);
         }}
         components={{
-          Card: BoardCard,
+          Card: (props: any) => <BoardCard {...props} boardData={boardData} />,
           LaneHeader: (props: any) => {
             const fullList = boardData?.lanes?.find((l: any) => l.id === props.id);
             return (

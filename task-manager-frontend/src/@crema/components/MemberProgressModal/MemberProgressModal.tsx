@@ -440,17 +440,18 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={900}
+      width={800}
       title={null}
       style={{ top: 20 }}
-      styles={{ body: { padding: 0 } }}
+      styles={{ body: { padding: "36px 24px 24px 24px" } }}
     >
       {/* ── Header ── */}
       <div
         style={{
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          padding: "24px 28px 20px",
-          borderRadius: "8px 8px 0 0",
+          padding: "20px 24px",
+          borderRadius: "12px",
+          marginBottom: 24,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -510,7 +511,7 @@ const MemberProgressModal: React.FC<MemberProgressModalProps> = ({
       </div>
 
       {/* ── Body ── */}
-      <div style={{ padding: "20px 28px 24px", maxHeight: "72vh", overflowY: "auto" }}>
+      <div style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: 8 }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 60 }}>
             <Spin size="large" />

@@ -99,9 +99,9 @@ const CardDependencies: React.FC<CardDependenciesProps> = ({
       if (onDependenciesChange) {
         onDependenciesChange(newDependencyIds);
       }
-      message.success("Dependencies updated successfully");
+      message.success("Cập nhật phụ thuộc thành công");
     } catch (error: any) {
-      message.error(error?.message || "Failed to update dependencies");
+      message.error(error?.message || "Cập nhật phụ thuộc thất bại");
       // Revert on error
       setSelectedDependencies(currentDependencyIds);
     } finally {
@@ -119,10 +119,10 @@ const CardDependencies: React.FC<CardDependenciesProps> = ({
     <div style={{ marginBottom: 16 }}>
       <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
         <LinkOutlined />
-        <span style={{ fontWeight: 500 }}>Dependencies</span>
+        <span style={{ fontWeight: 500 }}>Phụ thuộc</span>
         {isBlocked && (
           <Tag icon={<LockOutlined />} color="error">
-            Blocked
+            Bị chặn
           </Tag>
         )}
       </div>
@@ -130,7 +130,7 @@ const CardDependencies: React.FC<CardDependenciesProps> = ({
       <Select
         mode="multiple"
         style={{ width: "100%" }}
-        placeholder="Select tasks this card depends on"
+        placeholder="Chọn các công việc mà thẻ này phụ thuộc vào"
         value={selectedDependencies}
         onChange={handleDependencyChange}
         loading={loading}
@@ -148,7 +148,7 @@ const CardDependencies: React.FC<CardDependenciesProps> = ({
                 <Tag style={{ fontSize: 11 }}>{(card as any).listName}</Tag>
               )}
               {card.status === "DONE" && (
-                <Tag color="success" style={{ fontSize: 11 }}>Done</Tag>
+                <Tag color="success" style={{ fontSize: 11 }}>Hoàn thành</Tag>
               )}
             </div>
           </Option>
@@ -157,7 +157,7 @@ const CardDependencies: React.FC<CardDependenciesProps> = ({
 
       {isBlocked && (
         <div style={{ marginTop: 8, color: "#ff4d4f", fontSize: 12 }}>
-          <LockOutlined /> This card is blocked by incomplete dependencies
+          <LockOutlined /> Thẻ này đang bị chặn bởi các phụ thuộc chưa hoàn thành
         </div>
       )}
     </div>

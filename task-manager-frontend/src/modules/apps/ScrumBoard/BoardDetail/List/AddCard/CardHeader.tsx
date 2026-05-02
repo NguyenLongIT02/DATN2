@@ -29,38 +29,12 @@ const CardHeader: React.FC<CardHeaderProps> = ({
   list,
   canDelete = true,
 }) => {
-  const {getRootProps, getInputProps} = useDropzone({
-    accept: {
-      'image/jpeg': [],
-      'image/png': [],
-    },
-    onDrop: (acceptedFiles) => {
-      const files = acceptedFiles.map((file) => {
-        return {
-          id: generateRandomUniqueNumber(),
-          file,
-          preview: URL.createObjectURL(file),
-        };
-      });
-      onAddAttachments(files);
-    },
-  });
-
   return (
     <StyledScrumBoardCardHeader>
       <h3 className='text-truncate'>
         {board.name} &gt; {list!.name}
       </h3>
       <StyledScrumBoardCardHeaderAction>
-        <AppIconButton
-          icon={
-            <div {...getRootProps({className: 'dropzone'})}>
-              <input {...getInputProps()} />
-              <IoMdAttach />
-            </div>
-          }
-        />
-
         {canDelete && (
           <AppIconButton icon={<AiOutlineDelete />} onClick={onClickDeleteIcon} />
         )}

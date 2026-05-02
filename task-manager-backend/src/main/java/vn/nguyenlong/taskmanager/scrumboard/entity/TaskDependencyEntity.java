@@ -12,7 +12,7 @@ import lombok.Setter;
 import vn.nguyenlong.taskmanager.core.util.EntityBase;
 
 @Entity
-@Table(name = "tbl_task_dependency")
+@Table(name = "tbl_phu_thuoc_cong_viec")
 @Getter
 @Setter
 @NoArgsConstructor

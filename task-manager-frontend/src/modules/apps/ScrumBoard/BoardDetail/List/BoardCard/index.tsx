@@ -1,4 +1,6 @@
 import React, { useMemo } from "react";
+import { Popover, List, Progress, Typography } from "antd";
+const { Text } = Typography;
 import dayjs from "dayjs";
 import Members from "./Members";
 import Labels from "./Labels";
@@ -29,6 +31,7 @@ type CardDetailProps = {
   onClick?: () => void;
   listStatusType?: string; // Status of the list (TODO, IN_PROGRESS, DONE, NONE)
   dependencies?: number[]; // Dependency IDs
+  boardData?: any; // To access the full list of cards for dependencies
   // When used with react-trello, it may pass all card data as spread props
   [key: string]: any;
 };
@@ -82,30 +85,79 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
   // So we just show if it has dependencies
   const hasBlockingDependencies = safeDependencies.length > 0;
 
+  const dependentCards = useMemo(() => {
+    if (!props.boardData || !props.boardData.lanes || safeDependencies.length === 0) return [];
+    
+    const allCards = props.boardData.lanes.flatMap((lane: any) => lane.cards || []);
+    return allCards.filter((c: any) => safeDependencies.includes(c.id));
+  }, [props.boardData, safeDependencies]);
+
+  const popoverContent = (
+    <div style={{ width: 300, maxHeight: 300, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+      <List
+        size="small"
+        dataSource={dependentCards}
+        renderItem={(card: any) => {
+          const safeChecklist = Array.isArray(card.checkedList) ? card.checkedList : [];
+          const totalItems = safeChecklist.length;
+          const completedItems = safeChecklist.filter((item: any) => item.checked).length;
+          const progress = totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
+
+          return (
+            <List.Item>
+              <div style={{ width: '100%' }}>
+                <Text strong>{card.title ?? card.name}</Text>
+                {totalItems > 0 && (
+                  <Progress 
+                    percent={progress} 
+                    size="small" 
+                    status={progress === 100 ? "success" : "active"}
+                  />
+                )}
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  Trạng thái: {card.listStatusType === 'DONE' ? 'Hoàn thành' : card.listStatusType === 'IN_PROGRESS' ? 'Đang thực hiện' : 'Chưa bắt đầu'}
+                </div>
+              </div>
+            </List.Item>
+          );
+        }}
+      />
+    </div>
+  );
+
   // Determine card status based on list status and deadline
   const cardStatus = useMemo(() => {
-    // If in DONE list, show as completed (green)
+    // Nếu ở cột DONE → xanh lá
     if (listStatusType === 'DONE') {
       return 'completed';
+    }
+    
+    // Nếu ở cột IN_PROGRESS (Đang làm) → vàng
+    if (listStatusType === 'IN_PROGRESS') {
+      // Nhưng nếu đã quá hạn thì ưu tiên đỏ
+      if (displayDate) {
+        const now = dayjs();
+        const deadline = dayjs(displayDate);
+        if (deadline.isBefore(now, 'day')) {
+          return 'overdue';
+        }
+      }
+      return 'in-progress';
     }
     
     if (!displayDate) return 'normal';
     
     const now = dayjs();
     const deadline = dayjs(displayDate);
-    const daysUntilDeadline = deadline.diff(now, 'day');
     
-    // Overdue (past deadline) - red
-    if (daysUntilDeadline < 0) {
+    // Quá hạn (đã qua ngày deadline) → đỏ
+    if (deadline.isBefore(now, 'day')) {
       return 'overdue';
     }
-    // Due soon (within 3 days) - yellow
-    else if (daysUntilDeadline <= 3) {
-      return 'due-soon';
-    }
-    // Normal - no special color
+    
+    // Chưa quá hạn → bình thường
     return 'normal';
-  }, [displayDate, listStatusType]); // Recalculate when displayDate or listStatusType changes
+  }, [displayDate, listStatusType]); // Tính lại khi displayDate hoặc listStatusType thay đổi
 
   return (
     <StyledScrumBoardCardDetails
@@ -121,16 +173,35 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
           {title}
         </StyledScrumBoardCardDetailTitle>
         {hasBlockingDependencies && (
-          <div style={{ 
-            fontSize: 11, 
-            color: '#ff4d4f', 
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            marginLeft: 'auto'
-          }}>
-            <LockOutlined /> Phụ thuộc
-          </div>
+          <Popover 
+            content={popoverContent} 
+            title="Chi tiết thẻ phụ thuộc" 
+            trigger="click" 
+            placement="bottom"
+            onOpenChange={(visible) => {
+              if (visible && !props.boardData) {
+                console.warn("boardData is not provided to BoardCard");
+              }
+            }}
+          >
+            <div style={{ 
+              fontSize: 11, 
+              color: '#ff4d4f', 
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              marginLeft: 'auto',
+              cursor: 'pointer',
+              padding: '2px 4px',
+              borderRadius: '4px',
+              background: 'rgba(255, 77, 79, 0.1)'
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}>
+              <LockOutlined /> Phụ thuộc
+            </div>
+          </Popover>
         )}
       </StyledScrumBoardCardHeader>
       {safeLabel.length > 0 ? <Labels labels={safeLabel} /> : null}
@@ -151,7 +222,7 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
               background: 'rgba(255, 77, 79, 0.1)',
               fontWeight: 600
             }),
-            ...(cardStatus === 'due-soon' && {
+            ...(cardStatus === 'in-progress' && {
               color: '#faad14',
               background: 'rgba(250, 173, 20, 0.1)',
               fontWeight: 600
@@ -159,7 +230,7 @@ const BoardCard: React.FC<CardDetailProps> = (props) => {
           }}
         >
           {displayDate
-            ? dayjs(displayDate).format("MMM DD").split(",")[0]
+            ? dayjs(displayDate).format("DD/MM")
             : null}
         </StyledScrumBoardCardDetailDate>
         {safeComments.length > 0 ? (

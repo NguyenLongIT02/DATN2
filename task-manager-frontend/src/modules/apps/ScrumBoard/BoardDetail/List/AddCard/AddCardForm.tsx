@@ -27,6 +27,7 @@ import {
 import CardComments from "./CardComments";
 import CardCheckedList from "./CardCheckedList";
 import CardDependencies from "./CardDependencies";
+import CardAttachments from "./CardAttachments";
 import type {
   BoardObjType,
   CardListObjType,
@@ -145,6 +146,10 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
     }
   }, [refreshTrigger]);
 
+  const [attachments, setAttachments] = React.useState<AttachmentObjType[]>(() => {
+    return Array.isArray(selectedCard?.attachments) ? selectedCard.attachments : [];
+  });
+
   const onFinish = (values: any) => {
     const formattedValues = {
       ...values,
@@ -158,8 +163,8 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
 
     const laneId = list?.id;
     if (laneId === undefined || laneId === null) {
-      const operation = selectedCard ? "update card" : "create card";
-      showOperationErrorNotification(operation, "Cannot determine target list");
+      const operation = selectedCard ? "cập nhật thẻ" : "tạo thẻ";
+      showOperationErrorNotification(operation, "Không xác định được danh sách đích");
       return;
     }
 
@@ -206,7 +211,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
           showCardUpdatedNotification(values.title || "Card");
         })
         .catch((error) => {
-          showOperationErrorNotification("update card", error.message);
+          showOperationErrorNotification("cập nhật thẻ", error.message);
         });
     } else {
       const safeComments = Array.isArray(comments) ? comments : [];
@@ -257,7 +262,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
           showCardCreatedNotification(values.title || "Card");
         })
         .catch((error) => {
-          showOperationErrorNotification("create card", error.message);
+          showOperationErrorNotification("tạo thẻ", error.message);
         });
     }
   };
@@ -272,9 +277,29 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
       .then((data) => {
         const newComment = data as any;
         setComments([...comments, newComment]);
+        
+        // Cập nhật board data để bình luận không bị mất khi đóng/mở lại
+        if (setData && list) {
+          const updatedBoard = {
+            ...board,
+            list: (board.list || []).map((ln) => {
+              if (ln.id !== list.id) return ln;
+              const safeCards = Array.isArray(ln.cards) ? ln.cards : [];
+              return {
+                ...ln,
+                cards: safeCards.map((c) => 
+                  c.id === selectedCard.id
+                    ? { ...c, comments: [...(c.comments || []), newComment] }
+                    : c
+                )
+              };
+            })
+          } as BoardObjType;
+          setData(updatedBoard);
+        }
       })
       .catch((error) => {
-        showOperationErrorNotification("add comment", error.message);
+        showOperationErrorNotification("thêm bình luận", error.message);
       });
   };
 
@@ -282,10 +307,97 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
     jwtAxios.delete(`/scrumboard/comments/${commentId}`)
       .then(() => {
         setComments(prev => prev.filter(c => c.id !== commentId));
+        
+        // Cập nhật board data để bình luận không bị hiện lại khi đóng/mở lại
+        if (selectedCard && setData && list) {
+          const updatedBoard = {
+            ...board,
+            list: (board.list || []).map((ln) => {
+              if (ln.id !== list.id) return ln;
+              const safeCards = Array.isArray(ln.cards) ? ln.cards : [];
+              return {
+                ...ln,
+                cards: safeCards.map((c) => 
+                  c.id === selectedCard.id
+                    ? { ...c, comments: (c.comments || []).filter((cm: any) => cm.id !== commentId) }
+                    : c
+                )
+              };
+            })
+          } as BoardObjType;
+          setData(updatedBoard);
+        }
       })
       .catch((error) => {
         showOperationErrorNotification("xóa bình luận", error.message);
       });
+  };
+
+  const onDependenciesChange = (newDependencyIds: number[]) => {
+    if (setData && list && selectedCard) {
+      const updatedBoard = {
+        ...board,
+        list: (board.list || []).map((ln) => {
+          if (ln.id !== list.id) return ln;
+          const safeCards = Array.isArray(ln.cards) ? ln.cards : [];
+          return {
+            ...ln,
+            cards: safeCards.map((c) =>
+              c.id === selectedCard.id
+                ? { ...c, dependencies: newDependencyIds }
+                : c
+            ),
+          };
+        }),
+      } as BoardObjType;
+      setData(updatedBoard);
+    }
+  };
+
+  const onAddAttachment = (newAttachment: any) => {
+    setAttachments((prev) => [...prev, newAttachment]);
+
+    if (setData && list && selectedCard) {
+      const updatedBoard = {
+        ...board,
+        list: (board.list || []).map((ln) => {
+          if (ln.id !== list.id) return ln;
+          const safeCards = Array.isArray(ln.cards) ? ln.cards : [];
+          return {
+            ...ln,
+            cards: safeCards.map((c) =>
+              c.id === selectedCard.id
+                ? { ...c, attachments: [...(c.attachments || []), newAttachment] }
+                : c
+            ),
+          };
+        }),
+      } as BoardObjType;
+      setData(updatedBoard);
+    }
+  };
+
+  const onDeleteAttachment = (attachmentId: number) => {
+    setAttachments((prev) => prev.filter((a: any) => a.id !== attachmentId));
+
+    if (setData && list && selectedCard) {
+      const updatedBoard = {
+        ...board,
+        list: (board.list || []).map((ln) => {
+          if (ln.id !== list.id) return ln;
+          const safeCards = Array.isArray(ln.cards) ? ln.cards : [];
+          return {
+            ...ln,
+            cards: safeCards.map((c) =>
+              c.id === selectedCard.id
+                ? { ...c, attachments: (c.attachments || []).filter((a: any) => a.id !== attachmentId) }
+                : c
+            ),
+          };
+        }),
+      } as BoardObjType;
+      setData(updatedBoard);
+    }
   };
 
   const updateLabelList = (values: any) => {
@@ -452,7 +564,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
                   ) : (
                     <Option disabled value="loading-or-empty">
                       <div style={{ textAlign: "center", padding: "8px" }}>
-                        {loadingMembers ? "Loading members..." : "No members assigned to this board"}
+                        {loadingMembers ? "Đang tải thành viên..." : "Chưa có thành viên nào trong bảng này"}
                       </div>
                     </Option>
                   )}
@@ -467,6 +579,7 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
               cardId={selectedCard.id}
               boardId={board.id}
               currentDependencyIds={selectedCard.dependencies || []}
+              onDependenciesChange={onDependenciesChange}
               disabled={!canManageBoard}
             />
           )}
@@ -476,6 +589,17 @@ const AddCardForm: React.FC<AddCardFormProps> = ({
             checkedList={checkedList}
             setCheckedList={setCheckedList}
           />
+
+          {/* Attachments Section */}
+          {selectedCard && (
+            <CardAttachments
+              cardId={selectedCard.id}
+              attachments={attachments}
+              onAddAttachment={onAddAttachment}
+              onDeleteAttachment={onDeleteAttachment}
+              disabled={!canManageBoard}
+            />
+          )}
 
           {selectedCard && (
             <CardComments
